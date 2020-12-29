@@ -38,7 +38,7 @@ def csvDict(csvName):
             if row[0] == "Date":
                 continue
             key = datetime.strptime(row[0], '%Y-%m-%d')
-            mydict[key] = round(float(row[4]),1)
+            mydict[key] = round(float(row[4]),2)
     return mydict
 
 def csvDictHL(csvName):
@@ -56,7 +56,7 @@ def csvDictHL(csvName):
             if row[0] == "Date":
                 continue
             key = datetime.strptime(row[0], '%Y-%m-%d')
-            mydict[key] = [round(float(row[2]),1),round(float(row[3]),1),round(float(row[4]),1)]
+            mydict[key] = [round(float(row[2]),2),round(float(row[3]),2),round(float(row[4]),2)]
     return mydict
 
 
@@ -91,7 +91,7 @@ def findMovingAverage(date,window,data):
                 pass
             day += timedelta(days=1)
 
-        movingAve = round((sum(maList)/len(maList)),1)
+        movingAve = round((sum(maList)/len(maList)),2)
 
     except OverflowError:
         raise OverflowError
@@ -174,64 +174,64 @@ def moveAveList(window,data):
     return maList
 
 
-def getROC(date,window,data):
-    """
-    Returns the rate of change(ROC) for a certain  date. The ROC window only
-    takes into account trading days so weekends are excluded.
-
-    @param date the date to find the ROC for.
-    @param window the ROC time period.
-    @param data the dictionary containing the financial data.
-    @return an value for the ROC as a percentage.
-    """
-    priceNew = data[date]
-    day = date
-    count = 0
-    try:
-        while count <= window: # Going back finding the start date excluding weekends
-            try:
-                data[day]
-                count+=1
-            except KeyError:
-                pass
-            day -= timedelta(days=1)
-
-        priceOld = data[day+timedelta(days=1)]
-
-    except KeyError:
-        raise KeyError
-
-    roc = ((priceNew - priceOld)/priceOld)*100
-
-    return round(roc,2)
-
-
-def getROCSeries(mydict,window):
-    """
-    Returns a dictionary containing the rate of change(ROC) data for each
-    day.
-
-    @param mydict the dictionary containing the financial data.
-    @param window the window for the ROC to be calculated.
-    @return a dictionary containing ROC data.
-    """
-    rocSeries = {}
-    count = 0
-
-    for k,v in mydict.items():
-        count += 1
-        if count < window+1:
-            rocSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
-            continue
-
-        try:
-            roc = getROC(k,window,mydict)
-            rocSeries[datetime.strftime(k,'%Y-%m-%d')] = roc
-
-        except KeyError:
-            rocSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
-
-    return rocSeries
+# def getROC(date,window,data):
+#     """
+#     Returns the rate of change(ROC) for a certain  date. The ROC window only
+#     takes into account trading days so weekends are excluded.
+#
+#     @param date the date to find the ROC for.
+#     @param window the ROC time period.
+#     @param data the dictionary containing the financial data.
+#     @return an value for the ROC as a percentage.
+#     """
+#     priceNew = data[date]
+#     day = date
+#     count = 0
+#     try:
+#         while count <= window: # Going back finding the start date excluding weekends
+#             try:
+#                 data[day]
+#                 count+=1
+#             except KeyError:
+#                 pass
+#             day -= timedelta(days=1)
+#
+#         priceOld = data[day+timedelta(days=1)]
+#
+#     except KeyError:
+#         raise KeyError
+#
+#     roc = ((priceNew - priceOld)/priceOld)*100
+#
+#     return round(roc,2)
+#
+#
+# def getROCSeries(mydict,window):
+#     """
+#     Returns a dictionary containing the rate of change(ROC) data for each
+#     day.
+#
+#     @param mydict the dictionary containing the financial data.
+#     @param window the window for the ROC to be calculated.
+#     @return a dictionary containing ROC data.
+#     """
+#     rocSeries = {}
+#     count = 0
+#
+#     for k,v in mydict.items():
+#         count += 1
+#         if count < window+1:
+#             rocSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
+#             continue
+#
+#         try:
+#             roc = getROC(k,window,mydict)
+#             rocSeries[datetime.strftime(k,'%Y-%m-%d')] = roc
+#
+#         except KeyError:
+#             rocSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
+#
+#     return rocSeries
 
 
 def getEMA(dateTo,window,data):
@@ -437,33 +437,45 @@ def getRSI(window,dict1):
             if (prices[i]-prices[i-1])>0:
                 upPrices.append(prices[i]-prices[i-1])
                 downPrices.append(0)
-            else:
-                downPrices.append(prices[i]-prices[i-1])
+            elif (prices[i]-prices[i-1])<0:
+                downPrices.append(abs(prices[i]-prices[i-1]))
                 upPrices.append(0)
+            else:
+                upPrices.append(0)
+                downPrices.append(0)
+
         i += 1
     x = 0
     avg_gain = []
     avg_loss = []
     #  Loop to calculate the average gain and loss
+
     while x < len(upPrices):
+
         if x < window:
             avg_gain.append(0)
             avg_loss.append(0)
         else:
             sumGain = 0
             sumLoss = 0
-            y = x-window
-            while y<=x-1:
-                #print(y)
-                if upPrices[y] == 0:
-                    sumLoss += downPrices[y]
-                elif downPrices[y] == 0:
-                    sumGain += upPrices[y]
 
-                y += 1
-            avg_gain.append(sumGain/window)
-            avg_loss.append(abs(sumLoss/window))
+            y = x-window
+            if x == window:
+                while y<=x:
+                    #print(y)
+                    if upPrices[y] == 0:
+                        sumLoss += downPrices[y]
+                    elif downPrices[y] == 0:
+                        sumGain += upPrices[y]
+
+                    y += 1
+                avg_gain.append(sumGain/window)
+                avg_loss.append(sumLoss/window)
+            else:
+                avg_gain.append(((avg_gain[x-1]*(window-1)) + upPrices[x])/window)
+                avg_loss.append(((avg_loss[x-1]*(window-1)) + downPrices[x])/window)
         x += 1
+
     p = 0
     RS = []
     RSI = []
@@ -487,62 +499,41 @@ def getRSI(window,dict1):
     return rsiDict
 
 
-if __name__ == "__main__":
+def load():
 
-    yfDownload("MSFT",'2017-11-01','2020-10-19','1d')
+    yfDownload("MSFT",'2019-12-25','2020-12-25','1d')
     mydict = csvDict('MSFT.csv')
     mydicthl = csvDictHL('MSFT.csv')
 
-    for i in range(100):
+    for i in range(10,13):
         if i == 0:
             continue
         dict = moveAveList(i,mydict)
         addColum('SMA '+str(i)+'.0',dict,'MSFT.csv')
 
-    for i in range(100):
+    for i in range(10,13):
         if i == 0:
             continue
         dict1 = getEMASeries(mydict,i)
         addColum('EMA '+str(i)+'.0',dict1,'MSFT.csv')
 
     macdDictDT,macdDict = getMACDSeries(mydict,26,12)
-    macdDictDT1,macdDict1 = getMACDSeries(mydict,26,5)
-    macdDictDT2,macdDict2 = getMACDSeries(mydict,35,12)
-    macdDictDT3,macdDict3 = getMACDSeries(mydict,35,5)
-
-    macdSignalDict = getMacdSignal(macdDictDT,9)
-    macdSignalDict1 = getMacdSignal(macdDictDT1,9)
-    macdSignalDict2 = getMacdSignal(macdDictDT2,9)
-    macdSignalDict3 = getMacdSignal(macdDictDT3,9)
-
-    macdSignalDict4 = getMacdSignal(macdDictDT,5)
-    macdSignalDict5 = getMacdSignal(macdDictDT1,5)
-    macdSignalDict6 = getMacdSignal(macdDictDT2,5)
-    macdSignalDict7 = getMacdSignal(macdDictDT3,5)
-
     addColum('MACD 2612',macdDict,'MSFT.csv')
-    addColum('MACD 265',macdDict1,'MSFT.csv')
-    addColum('MACD 3512',macdDict2,'MSFT.csv')
-    addColum('MACD 355',macdDict3,'MSFT.csv')
-
+    macdSignalDict = getMacdSignal(macdDictDT,9)
     addColum('MACD Signal 92612',macdSignalDict,'MSFT.csv')
-    addColum('MACD Signal 9265',macdSignalDict1,'MSFT.csv')
-    addColum('MACD Signal 93512',macdSignalDict2,'MSFT.csv')
-    addColum('MACD Signal 9355',macdSignalDict3,'MSFT.csv')
-    addColum('MACD Signal 52612',macdSignalDict4,'MSFT.csv')
-    addColum('MACD Signal 5265',macdSignalDict5,'MSFT.csv')
-    addColum('MACD Signal 53512',macdSignalDict6,'MSFT.csv')
-    addColum('MACD Signal 5355',macdSignalDict7,'MSFT.csv')
-
-
 
     rsiDict = getRSI(14,mydict)
+    addColum('RSI 14',rsiDict,'MSFT.csv') #need to check this. IT COULD BE incorrect
+
     emaDict = getEMASeries(mydict,30)
-    rocDict = getROCSeries(mydict,40)
+    addColum('EMA 30',emaDict,'MSFT.csv')
+
     soDict, soStrDict = getSOSeries(mydicthl,14)
     soDDict = moveAveList(3,soStrDict)
-    addColum('RSI 14',rsiDict,'MSFT.csv') #need to check this. IT COULD BE incorrect
-    addColum('EMA 30',emaDict,'MSFT.csv')
-    addColum('ROC 40',rocDict,'MSFT.csv') # numbers for the three below are slightly off. Could be worth looking in to
     addColum('SO 14',soDict,'MSFT.csv')
     addColum('%D 3',soDDict,'MSFT.csv')
+
+
+if __name__ == "__main__":
+
+    load()
