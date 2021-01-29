@@ -33,6 +33,25 @@ def emaRule(price,dateC,dateP,f,s,panda):
     else:
         return 0
 
+def macdRule(price,dateC,dateP,h,f,panda):
+
+    h = 0
+    f = 0 # These are obselete at the moment
+
+    dates = panda["Date"]
+    macd = panda["MACD 2612"]
+    signalLine = panda["MACD Signal 92612"]
+
+    macdDict = dict(zip(dates, macd))
+    signalDict = dict(zip(dates, signalLine))
+
+    if macdDict[dateP] < signalDict[dateP] and macdDict[dateC] > signalDict[dateC]:
+        return 1
+    if macdDict[dateP] > signalDict[dateP] and macdDict[dateC] < signalDict[dateC]:
+        return -1
+    else:
+        return 0
+
 def rsiRule(price,dateC,dateP,h,l,panda):
 
     dates = panda["Date"]
@@ -139,4 +158,4 @@ def simulation(rule):
     return round(answer,2), returns+equity
 
 if __name__ == "__main__":
-    print(simulation(soRule))
+    print(simulation(macdRule))
