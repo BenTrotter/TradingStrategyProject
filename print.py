@@ -56,16 +56,23 @@ class macd_ans(object):
 class macd_bounds(object):
     pass
 
-def maRule(date,window):
+class so_int(object):
+    pass
+class so_ans(object):
+    pass
+class so_bounds(object):
+    pass
+
+def ma(date,window):
     startDay = datetime.strptime(date,'%Y-%m-%d')
-    panda = pd.read_csv('MSFT.csv')
+    panda = pd.read_csv('MSFT.csv') # Maybe set MSFT.csv variable to a global variable
     mas = panda["SMA "+str(window)+".0"]
     dates = panda["Date"]
     dict1 = dict(zip(dates,mas))
     ma = dict1[date]
     return ma
 
-def rsiRule(date,window):
+def rsi(date,window):
     startDay = datetime.strptime(date,'%Y-%m-%d')
     panda = pd.read_csv('MSFT.csv')
     rsi = panda["RSI "+str(window)+".0"]
@@ -74,7 +81,7 @@ def rsiRule(date,window):
     RSI = dict1[date]
     return RSI
 
-def emaRule(date,window):
+def ema(date,window):
     startDay = datetime.strptime(date,'%Y-%m-%d')
     panda = pd.read_csv('MSFT.csv')
     emas = panda["EMA "+str(window)+".0"]
@@ -83,7 +90,7 @@ def emaRule(date,window):
     ema = dict1[date]
     return ema
 
-def macdRule(date,s,f,sig):
+def macd(date,s,f,sig):
     startDay = datetime.strptime(date,'%Y-%m-%d')
     panda = pd.read_csv('MSFT.csv')
     macd = panda["MACD "+str(s)+str(f)]
@@ -96,7 +103,18 @@ def macdRule(date,s,f,sig):
     ans = macd1 - sig1
     return ans
 
-# def soRule()
+def so(date,window):
+    startDay = datetime.strptime(date,'%Y-%m-%d')
+    panda = pd.read_csv('MSFT.csv')
+    SO = panda["SO "+str(window)]
+    sig = panda["%D 3-"+str(window)] # Maybe make this a variable that is explored by the algorithm
+    dates = panda["Date"]
+    dict1 = dict(zip(dates,SO))
+    dict2 = dict(zip(dates,sig))
+    so = dict1[date]
+    sig1 = dict2[date]
+    ans = so - sig1 # Check this is the right way round. It may not matter.
+    return ans
 
 # defined a new primitive set for strongly typed GP
 pset = gp.PrimitiveSetTyped("MAIN", [str], pd_bool)
@@ -108,12 +126,15 @@ pset.addPrimitive(operator.lt, [pd_float, pd_float], pd_bool)
 pset.addPrimitive(operator.gt, [pd_float, pd_float], pd_bool)
 pset.addPrimitive(operator.lt, [rsi_bounds, rsi_ans], pd_bool)
 pset.addPrimitive(operator.gt, [rsi_bounds, rsi_ans], pd_bool)
-pset.addPrimitive(operator.lt, [macd_bounds, macd_ans], pd_bool)
+pset.addPrimitive(operator.lt, [macd_bounds, macd_ans], pd_bool) # for above or below zero, maybe make macd_bounds and so_bounds the same thing
 pset.addPrimitive(operator.gt, [macd_bounds, macd_ans], pd_bool)
-pset.addPrimitive(maRule, [str, ma_int], pd_float)
-pset.addPrimitive(emaRule, [str, ema_int], pd_float)
-pset.addPrimitive(rsiRule, [str, rsi_int], rsi_ans)
-pset.addPrimitive(macdRule, [str, macd_s, macd_f, macd_sig], macd_ans)
+pset.addPrimitive(operator.lt, [so_bounds, so_ans], pd_bool)
+pset.addPrimitive(operator.gt, [so_bounds, so_ans], pd_bool)
+pset.addPrimitive(ma, [str, ma_int], pd_float)
+pset.addPrimitive(ema, [str, ema_int], pd_float)
+pset.addPrimitive(rsi, [str, rsi_int], rsi_ans)
+pset.addPrimitive(macd, [str, macd_s, macd_f, macd_sig], macd_ans)
+pset.addPrimitive(so, [str, so_int], so_ans)
 
 emaWindows = [5, 12, 26, 30, 50, 100, 200]
 for i in emaWindows:
@@ -139,6 +160,11 @@ macdSig = [5, 9]
 for i in macdSig:
     pset.addTerminal(i,macd_sig)
 pset.addTerminal(0,macd_bounds)
+
+soWindows = [7,14,28]
+for i in soWindows:
+    pset.addTerminal(i,so_int)
+pset.addTerminal(0,so_bounds)
 
 pset.renameArguments(ARG0='Date')
 
@@ -230,7 +256,7 @@ def simulation(individual):
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax)
 
-terminal_types = [macd_bounds,macd_sig,macd_f,macd_s, ema_int ,ma_int, rsi_int, rsi_bounds, str]
+terminal_types = [so_bounds,so_int,macd_bounds,macd_sig,macd_f,macd_s, ema_int ,ma_int, rsi_int, rsi_bounds, str]
 
 toolbox = base.Toolbox()
 toolbox.register("expr", gp.generate_safe, pset=pset, min_=1, max_=7, terminal_types=terminal_types)
@@ -245,6 +271,8 @@ toolbox.register("mate", gp.cxOnePoint)
 toolbox.register("expr_mut", gp.generate_safe, min_=1, max_=5, terminal_types=terminal_types)
 # I'm worried that mutation isn't working properly
 toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
+
+
 
 def showTree(tree):
     nodes, edges, labels = gp.graph(tree)
@@ -295,5 +323,10 @@ def main(ngen,popu,cxpb,mutpb,graph=True):
 
 
 if __name__ == "__main__":
-    # ngen, popu, cxpb, mutpb
-    main(5,20,0.5,0.2)
+
+    NUM_GENERATIONS = 5
+    POPULATION = 10
+    CXPB = 0.8
+    MUTPB = 0.2
+
+    main(NUM_GENERATIONS,POPULATION,CXPB,MUTPB)

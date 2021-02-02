@@ -531,11 +531,12 @@ def load():
                 macdSignalDict = getMacdSignal(macdDictDT,sig)
                 addColum('MACD Signal '+str(sig)+str(s)+str(f),macdSignalDict,'MSFT.csv')
 
-
-    soDict, soStrDict = getSOSeries(mydicthl,14)
-    soDDict = moveAveList(3,soStrDict)
-    addColum('SO 14',soDict,'MSFT.csv')
-    addColum('%D 3',soDDict,'MSFT.csv')
+    soWindows = [7,14,28]
+    for w in soWindows:
+        soDict, soStrDict = getSOSeries(mydicthl,w)
+        soDDict = moveAveList(3,soStrDict)
+        addColum('SO '+str(w),soDict,'MSFT.csv')
+        addColum('%D 3-'+str(w),soDDict,'MSFT.csv')
 
 
 if __name__ == "__main__":
