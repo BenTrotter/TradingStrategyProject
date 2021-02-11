@@ -499,26 +499,27 @@ def getRSI(window,dict1):
     return rsiDict
 
 
-def load():
+def load(ticker,startDate,endDate):
 
-    yfDownload("MSFT",'2018-12-25','2020-12-25','1d')
-    mydict = csvDict('MSFT.csv')
-    mydicthl = csvDictHL('MSFT.csv')
+    yfDownload(ticker,startDate,endDate,'1d')
+    csv = ticker+".csv"
+    mydict = csvDict(csv)
+    mydicthl = csvDictHL(csv)
 
     maWindows = [5, 10, 20, 30, 50, 100, 200]
     for i in maWindows:
         dict = moveAveList(i,mydict)
-        addColum('SMA '+str(i)+'.0',dict,'MSFT.csv')
+        addColum('SMA '+str(i)+'.0',dict,csv)
 
     emaWindows = [5, 12, 26, 30, 50, 100, 200]
     for i in emaWindows:
         dict1 = getEMASeries(mydict,i)
-        addColum('EMA '+str(i)+'.0',dict1,'MSFT.csv')
+        addColum('EMA '+str(i)+'.0',dict1,csv)
 
     rsiWindows = [7, 14, 28]
     for i in rsiWindows:
         rsiDict = getRSI(i,mydict)
-        addColum('RSI '+str(i)+'.0',rsiDict,'MSFT.csv')
+        addColum('RSI '+str(i)+'.0',rsiDict,csv)
 
     macdS = [26, 35]
     macdF = [5, 12]
@@ -526,19 +527,19 @@ def load():
     for s in macdS:
         for f in macdF:
             macdDictDT,macdDict = getMACDSeries(mydict,s,f)
-            addColum('MACD '+str(s)+str(f),macdDict,'MSFT.csv')
+            addColum('MACD '+str(s)+str(f),macdDict,csv)
             for sig in macdSig:
                 macdSignalDict = getMacdSignal(macdDictDT,sig)
-                addColum('MACD Signal '+str(sig)+str(s)+str(f),macdSignalDict,'MSFT.csv')
+                addColum('MACD Signal '+str(sig)+str(s)+str(f),macdSignalDict,csv)
 
     soWindows = [7,14,28]
     for w in soWindows:
         soDict, soStrDict = getSOSeries(mydicthl,w)
         soDDict = moveAveList(3,soStrDict)
-        addColum('SO '+str(w),soDict,'MSFT.csv')
-        addColum('%D 3-'+str(w),soDDict,'MSFT.csv')
+        addColum('SO '+str(w),soDict,csv)
+        addColum('%D 3-'+str(w),soDDict,csv)
 
 
 if __name__ == "__main__":
 
-    load()
+    load("MSFT",'2015-12-25','2021-02-10')
