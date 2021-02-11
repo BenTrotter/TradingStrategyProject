@@ -499,9 +499,44 @@ def getRSI(window,dict1):
     return rsiDict
 
 
-def load(ticker,startDate,endDate):
+def trimCSV(csv1,start,end):
+    """
+    This function trims a csv file to only contain data between certain dates.
+    It is used within the load function in order to reduce the file size of the
+    csv and improve performance. The original csv file used for precomputaion
+    of indicators needs to be larger in order to obtain accurate results. It creates
+    a new csv file called Trim.csv which contains the trimmed version of the
+    orignial csv
 
-    yfDownload(ticker,startDate,endDate,'1d')
+    @param csv1 The name of the larger csv file used for precomputaion.
+    @param start the start date of the trimmed csv file
+    @param end the end date of the trimmed csv file
+    """
+    s = datetime.strptime( start,'%Y-%m-%d')
+    e = datetime.strptime( end,'%Y-%m-%d')
+    dateRange = []
+
+    while(s != e):
+        dateRange.append(s)
+        s += timedelta(days=1)
+
+    with open(csv1, mode='r') as inp, open('Trim.csv', mode='w') as out:
+        writer = csv.writer(out)
+        count = 0
+        for row in csv.reader(inp):
+            if count == 0:
+                writer.writerow(row)
+                count = 1
+                continue
+            if datetime.strptime( row[0],'%Y-%m-%d') in dateRange:
+                writer.writerow(row)
+                continue
+
+
+def load(ticker,startDate,endDate):
+    # download data for 3 years before the startdate to increase accuracy of precomputaion
+    beforeStart = datetime.strptime( startDate,'%Y-%m-%d') - timedelta(days=1095)
+    yfDownload(ticker,beforeStart,endDate,'1d')
     csv = ticker+".csv"
     mydict = csvDict(csv)
     mydicthl = csvDictHL(csv)
@@ -540,6 +575,11 @@ def load(ticker,startDate,endDate):
         addColum('%D 3-'+str(w),soDDict,csv)
 
 
+    trimCSV(csv,startDate,endDate)
+    os.remove(ticker+'.csv')
+    os.rename('Trim.csv',ticker+'.csv')
+
+
 if __name__ == "__main__":
 
-    load("MSFT",'2015-12-25','2021-02-10')
+    load("MSFT",'2017-12-25','2021-02-10')
