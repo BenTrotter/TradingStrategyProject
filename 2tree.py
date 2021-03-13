@@ -26,10 +26,13 @@ from multiprocessing import freeze_support
 class pd_float(object):
     pass
 
+class final(object):
+    pass
+
 class pd_bool(object):
     pass
 
-class position_bool(object):
+class input_bool(object):
     pass
 
 class pd_int(object):
@@ -46,10 +49,6 @@ class rsi_int(object):
 class rsi_bounds(object):
     pass
 class rsi_ans(object):
-    pass
-class rsi_lt(object):
-    pass
-class rsi_gt(object):
     pass
 
 class macd_sig(object):
@@ -126,20 +125,18 @@ def so(date,window):
 def if_then_else(input, output1, output2):
     return output1 if input else output2
 
-# I have forced rsi rule. Maybe allow for more loose options to be explored. e.g.
-# not limiting the rsi to be within and if then else rule.
-
 # defined a new primitive set for strongly typed GP
-pset = gp.PrimitiveSetTyped("MAIN", [str,position_bool], pd_bool)
+pset = gp.PrimitiveSetTyped("MAIN", [str,input_bool], final)
 # boolean operators
-pset.addPrimitive(if_then_else, [position_bool, rsi_gt, rsi_lt], pd_bool)
+pset.addPrimitive(if_then_else, [input_bool, pd_bool, pd_bool], final)
+
 pset.addPrimitive(operator.and_, [pd_bool, pd_bool], pd_bool)
 pset.addPrimitive(operator.or_, [pd_bool, pd_bool], pd_bool)
 pset.addPrimitive(operator.not_, [pd_bool], pd_bool)
 pset.addPrimitive(operator.lt, [pd_float, pd_float], pd_bool)
 pset.addPrimitive(operator.gt, [pd_float, pd_float], pd_bool)
-pset.addPrimitive(operator.lt, [rsi_ans,rsi_bounds], rsi_lt)
-pset.addPrimitive(operator.gt, [rsi_ans, rsi_bounds], rsi_gt)
+pset.addPrimitive(operator.lt, [rsi_ans,rsi_bounds], pd_bool)
+pset.addPrimitive(operator.gt, [rsi_ans, rsi_bounds], pd_bool)
 pset.addPrimitive(operator.lt, [macd_bounds, macd_ans], pd_bool) # for above or below zero, maybe make macd_bounds and so_bounds the same thing
 pset.addPrimitive(operator.gt, [macd_bounds, macd_ans], pd_bool)
 pset.addPrimitive(operator.lt, [so_bounds, so_ans], pd_bool)
@@ -239,20 +236,14 @@ def simulation(individual):
 
         action = rule(date,position)
 
-        if action and position == False:
+        if action:
             buy = True
             sell = False
-        elif not action and position == False:
-            sell = False
-            buy = False
-        elif action and position == True:
+        else:
             sell = True
             buy = False
-        elif not action and position == True:
-            sell = False
-            buy = False
 
-        if buy:
+        if buy and position == False:
             position = True
             shares = amount/price
             balance -= amount
@@ -260,7 +251,7 @@ def simulation(individual):
             # print('On date: ',date)
             # print("Bought ",round(shares,4),' shares at price ',price,'\n')
 
-        elif sell and shares > 0:
+        elif sell and shares > 0 and position == True:
             position = False
             balance = shares*price
             profit = balance - amount
@@ -288,7 +279,7 @@ def simulation(individual):
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax)
 
-terminal_types = [so_bounds,so_int,macd_bounds,macd_sig,macd_f,macd_s, ema_int ,ma_int, rsi_int, rsi_bounds, str, position_bool]
+terminal_types = [so_bounds,so_int,macd_bounds,macd_sig,macd_f,macd_s, ema_int ,ma_int, rsi_int, rsi_bounds, str, input_bool]
 
 toolbox = base.Toolbox()
 
@@ -459,9 +450,9 @@ def testTree(individual):
 
 if __name__ == "__main__":
 
-    NUM_GENERATIONS = 10
-    POPULATION = 30
-    CXPB = 0.6
+    NUM_GENERATIONS = 1
+    POPULATION = 5
+    CXPB = 0.8
     MUTPB = 0.2
     freeze_support()
     random.seed()

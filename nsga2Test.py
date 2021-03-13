@@ -13,29 +13,23 @@ import deap
 from importlib import reload
 reload(deap)
 
-from deap import algorithms
-from deap import base
-from deap import creator
-from deap import tools
-from deap import gp
+from deap import algorithms, base, creator, tools, gp
+from deap.benchmarks.tools import diversity, convergence, hypervolume
 
 from datetime import datetime, timedelta
 import pandas as pd
 
-import array
-from deap import benchmarks
-from deap.benchmarks.tools import diversity, convergence, hypervolume
+from scoop import futures
 
-
-
-
-
-
+import multiprocessing
+from multiprocessing import freeze_support
 
 class pd_float(object):
     pass
 
 class pd_bool(object):
+    pass
+class position_bool(object):
     pass
 
 class pd_int(object):
@@ -52,6 +46,10 @@ class rsi_int(object):
 class rsi_bounds(object):
     pass
 class rsi_ans(object):
+    pass
+class rsi_lt(object):
+    pass
+class rsi_gt(object):
     pass
 
 class macd_sig(object):
@@ -73,7 +71,7 @@ class so_bounds(object):
     pass
 
 def ma(date,window):
-    startDay = datetime.strptime(date,'%Y-%m-%d')
+
     panda = pd.read_csv('MSFT.csv') # Maybe set MSFT.csv variable to a global variable
     mas = panda["SMA "+str(window)+".0"]
     dates = panda["Date"]
@@ -82,7 +80,7 @@ def ma(date,window):
     return ma
 
 def rsi(date,window):
-    startDay = datetime.strptime(date,'%Y-%m-%d')
+
     panda = pd.read_csv('MSFT.csv')
     rsi = panda["RSI "+str(window)+".0"]
     dates = panda["Date"]
@@ -91,7 +89,7 @@ def rsi(date,window):
     return RSI
 
 def ema(date,window):
-    startDay = datetime.strptime(date,'%Y-%m-%d')
+
     panda = pd.read_csv('MSFT.csv')
     emas = panda["EMA "+str(window)+".0"]
     dates = panda["Date"]
@@ -100,7 +98,7 @@ def ema(date,window):
     return ema
 
 def macd(date,s,f,sig):
-    startDay = datetime.strptime(date,'%Y-%m-%d')
+
     panda = pd.read_csv('MSFT.csv')
     macd = panda["MACD "+str(s)+str(f)]
     sig = panda["MACD Signal "+str(sig)+str(s)+str(f)]
@@ -113,7 +111,7 @@ def macd(date,s,f,sig):
     return ans
 
 def so(date,window):
-    startDay = datetime.strptime(date,'%Y-%m-%d')
+
     panda = pd.read_csv('MSFT.csv')
     SO = panda["SO "+str(window)]
     sig = panda["%D 3-"+str(window)] # Maybe make this a variable that is explored by the algorithm
@@ -125,16 +123,23 @@ def so(date,window):
     ans = so - sig1 # Check this is the right way round. It may not matter.
     return ans
 
+def if_then_else(input, output1, output2):
+    return output1 if input else output2
+
+# I have forced rsi rule. Maybe allow for more loose options to be explored. e.g.
+# not limiting the rsi to be within and if then else rule.
+
 # defined a new primitive set for strongly typed GP
-pset = gp.PrimitiveSetTyped("MAIN", [str], pd_bool)
+pset = gp.PrimitiveSetTyped("MAIN", [str,position_bool], pd_bool)
 # boolean operators
+pset.addPrimitive(if_then_else, [position_bool, rsi_gt, rsi_lt], pd_bool)
 pset.addPrimitive(operator.and_, [pd_bool, pd_bool], pd_bool)
 pset.addPrimitive(operator.or_, [pd_bool, pd_bool], pd_bool)
 pset.addPrimitive(operator.not_, [pd_bool], pd_bool)
 pset.addPrimitive(operator.lt, [pd_float, pd_float], pd_bool)
 pset.addPrimitive(operator.gt, [pd_float, pd_float], pd_bool)
-pset.addPrimitive(operator.lt, [rsi_bounds, rsi_ans], pd_bool)
-pset.addPrimitive(operator.gt, [rsi_bounds, rsi_ans], pd_bool)
+pset.addPrimitive(operator.lt, [rsi_ans,rsi_bounds], rsi_lt)
+pset.addPrimitive(operator.gt, [rsi_ans, rsi_bounds], rsi_gt)
 pset.addPrimitive(operator.lt, [macd_bounds, macd_ans], pd_bool) # for above or below zero, maybe make macd_bounds and so_bounds the same thing
 pset.addPrimitive(operator.gt, [macd_bounds, macd_ans], pd_bool)
 pset.addPrimitive(operator.lt, [so_bounds, so_ans], pd_bool)
@@ -176,70 +181,88 @@ for i in soWindows:
 pset.addTerminal(0,so_bounds)
 
 pset.renameArguments(ARG0='Date')
+pset.renameArguments(ARG1='Position')
 
+def getPriceDataDict(csv,startDate,endDate):
+    """
+    gets a dict of date and price as keys and values. It trims the dict
+    to only contain the relevant data between certain dates.
+    """
+    panda = pd.read_csv(csv)
+    panda["Date"] = pd.to_datetime(panda['Date']) # date column to datetime
+    # retrieve dates from series between start and end date
+    mask = (panda['Date'] > startDate) & (panda['Date'] <= endDate)
+    panda = panda.loc[mask]
+    prices = panda["Close"]
+    panda = panda.astype(str) # make everything in the panda to a string
+    dates = panda['Date']
+    combined = dict(zip(dates, round(prices,2)))
+
+    return combined
 
 def simulation(individual):
 
     rule = toolbox.compile(expr=individual)
 
     startDate = '2020-01-01'
-    endDate = '2020-12-25'
+    endDate = '2021-01-01'
     amount = 1000
     shares = 0
     balance = 1000
     returns = 0
     equity = 0
-    numTrades = 1
     startDay = datetime.strptime(startDate,'%Y-%m-%d')
     endDay = datetime.strptime(endDate,'%Y-%m-%d')
 
-    panda = pd.read_csv('MSFT.csv')
-    dates = panda["Date"]
-    prices = panda["Close"]
-    combined = dict(zip(dates, round(prices,2)))
+    priceData = getPriceDataDict('MSFT.csv',startDate,endDate)
+
     iter = 0
     startCount = 0
     bhBalance = 0
     bhShares = 0
+    numTrades = 0
     position = False
 
-    for date, price in combined.items(): # Need to make within the sim time frame
+    for date, price in priceData.items(): # Need to make within the sim time frame
         # to start the sim from the start date
-
         if datetime.strptime(date,'%Y-%m-%d') < startDay and startCount == 0:
             continue
         # calculating the b&h strategy at start date
         elif startCount == 0:
             startD = date
             startCount = 1
-            bhShares = amount / combined[date]
-
+            bhShares = amount / priceData[date]
 
         if iter == 0:
             oldDate = date
             iter += 1
             continue
 
+        action = rule(date,position)
 
-        action = rule(date)
-
-        if action:
+        if action and position == False:
             buy = True
             sell = False
-        else:
+        elif not action and position == False:
+            sell = False
+            buy = False
+        elif action and position == True:
             sell = True
             buy = False
+        elif not action and position == True:
+            sell = False
+            buy = False
 
-        if buy and position == False:
+        if buy:
+            numTrades += 1
             position = True
             shares = amount/price
             balance -= amount
-            numTrades += 1
             # print("----- BUY £",amount," -----")
             # print('On date: ',date)
             # print("Bought ",round(shares,4),' shares at price ',price,'\n')
 
-        elif sell and shares > 0 and position == True:
+        elif sell and shares > 0:
             position = False
             balance = shares*price
             profit = balance - amount
@@ -254,24 +277,20 @@ def simulation(individual):
 
         # to end the sim at the end date
         if datetime.strptime(date,'%Y-%m-%d') >= endDay:
-            bhBalance = bhShares*combined[oldDate]
+            bhBalance = bhShares*priceData[oldDate]
             break
 
         oldDate = date
         answer = (((returns+equity)-amount)/amount)*100
 
-    return round(answer,2), numTrades#, returns+equity
+    return round(answer,2), numTrades,#, returns+equity
 
 
 
+creator.create("Fitness", base.Fitness, weights=(1.0,-1.0,))
+creator.create("Individual", gp.PrimitiveTree, fitness=creator.Fitness)
 
-
-
-creator.create("FitnessMax", base.Fitness, weights=(1.0, -1.0))
-creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax)
-
-terminal_types = [so_bounds,so_int,macd_bounds,macd_sig,macd_f,macd_s, ema_int ,ma_int, rsi_int, rsi_bounds, str]
-
+terminal_types = [so_bounds,so_int,macd_bounds,macd_sig,macd_f,macd_s, ema_int ,ma_int, rsi_int, rsi_bounds, str, position_bool]
 toolbox = base.Toolbox()
 
 toolbox.register("expr", gp.generate_safe, pset=pset, min_=1, max_=7, terminal_types=terminal_types)
@@ -279,18 +298,41 @@ toolbox.register("expr", gp.generate_safe, pset=pset, min_=1, max_=7, terminal_t
 toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 toolbox.register("compile", gp.compile, pset=pset)
+
 toolbox.register("evaluate", simulation)
+toolbox.register("select", tools.selNSGA2)
 toolbox.register("mate", gp.cxOnePoint)
 toolbox.register("expr_mut", gp.generate_safe, min_=1, max_=5, terminal_types=terminal_types)
-toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset) # I'm worried that mutation isn't working properly
-toolbox.register("select", tools.selNSGA2)
+# Check mutation is working properly
+toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
 
-def main(seed=None):
-    random.seed(seed)
 
-    NGEN = 5
-    MU = 10
-    CXPB = 0.8
+
+def showTree(tree):
+    nodes, edges, labels = gp.graph(tree)
+    g = nx.Graph()
+    g.add_nodes_from(nodes)
+    g.add_edges_from(edges)
+    pos = nx.nx_agraph.graphviz_layout(g, prog="dot")
+
+    nx.draw_networkx_nodes(g, pos)
+    nx.draw_networkx_edges(g, pos)
+    nx.draw_networkx_labels(g, pos, labels)
+    plt.show()
+    return
+
+def main(parallel=True):
+
+    random.seed()
+
+    NGEN = 4
+    MU = 4
+    CXPB = 0.7
+
+    # NGEN = 100
+    # MU = 100
+    # CXPB = 0.8
+
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     # stats.register("avg", numpy.mean, axis=0)
@@ -300,6 +342,16 @@ def main(seed=None):
 
     logbook = tools.Logbook()
     logbook.header = "gen", "evals", "std", "min", "avg", "max"
+
+    #multiprocessing
+    if parallel:
+        pool = multiprocessing.Pool()
+        toolbox.register("map", pool.map)
+        toolbox.register("map", futures.map)
+
+    # LOOK INTO THIS APPROACH FOR UNPACKING EACH GENERATION
+    # for i in range(NGEN):
+    #     pop, logbook = algorithms.eaMuPlusLambda(pop, toolbox, 10, 10, CXPB, MUTPB, 1, stats, halloffame=hof)
 
     pop = toolbox.population(n=MU)
 
@@ -320,7 +372,7 @@ def main(seed=None):
     # Begin the generational process
     for gen in range(1, NGEN):
         # Vary the population
-        offspring = tools.selTournamentDCD(pop, 8) #i added 8
+        offspring = tools.selTournamentDCD(pop, len(pop))
         offspring = [toolbox.clone(ind) for ind in offspring]
 
         for ind1, ind2 in zip(offspring[::2], offspring[1::2]):
@@ -343,15 +395,22 @@ def main(seed=None):
         logbook.record(gen=gen, evals=len(invalid_ind), **record)
         print(logbook.stream)
 
+
+
+
+
+
+
+
+    if parallel:
+        pool.close()
+
     print("Final population hypervolume is %f" % hypervolume(pop, [11.0, 11.0]))
 
     return pop, logbook
 
-if __name__ == "__main__":
-    # with open("pareto_front/zdt1_front.json") as optimal_front_data:
-    #     optimal_front = json.load(optimal_front_data)
-    # Use 500 of the 1000 points in the json file
-    # optimal_front = sorted(optimal_front[i] for i in range(0, len(optimal_front), 2))
 
+if __name__ == "__main__":
+    freeze_support()
+    random.seed()
     pop, stats = main()
-    pop.sort(key=lambda x: x.fitness.values)

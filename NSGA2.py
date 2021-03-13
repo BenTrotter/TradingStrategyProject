@@ -14,6 +14,7 @@ from importlib import reload
 reload(deap)
 
 from deap import algorithms, base, creator, tools, gp
+from deap.benchmarks.tools import diversity, convergence, hypervolume
 
 from datetime import datetime, timedelta
 import pandas as pd
@@ -28,7 +29,6 @@ class pd_float(object):
 
 class pd_bool(object):
     pass
-
 class position_bool(object):
     pass
 
@@ -220,6 +220,7 @@ def simulation(individual):
     startCount = 0
     bhBalance = 0
     bhShares = 0
+    numTrades = 0
     position = False
 
     for date, price in priceData.items(): # Need to make within the sim time frame
@@ -253,6 +254,7 @@ def simulation(individual):
             buy = False
 
         if buy:
+            numTrades += 1
             position = True
             shares = amount/price
             balance -= amount
@@ -281,28 +283,27 @@ def simulation(individual):
         oldDate = date
         answer = (((returns+equity)-amount)/amount)*100
 
-    return round(answer,2),#, returns+equity
+    return round(answer,2), numTrades,#, returns+equity
 
 
 
-creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax)
+creator.create("Fitness", base.Fitness, weights=(1.0,-1.0,))
+creator.create("Individual", gp.PrimitiveTree, fitness=creator.Fitness)
 
 terminal_types = [so_bounds,so_int,macd_bounds,macd_sig,macd_f,macd_s, ema_int ,ma_int, rsi_int, rsi_bounds, str, position_bool]
-
 toolbox = base.Toolbox()
 
-toolbox.register("expr", gp.generate_safe, pset=pset, min_=1, max_=9, terminal_types=terminal_types)
+toolbox.register("expr", gp.generate_safe, pset=pset, min_=1, max_=7, terminal_types=terminal_types)
 
 toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 toolbox.register("compile", gp.compile, pset=pset)
 
 toolbox.register("evaluate", simulation)
-toolbox.register("select", tools.selTournament, tournsize=2)
+toolbox.register("select", tools.selNSGA2)
 toolbox.register("mate", gp.cxOnePoint)
 toolbox.register("expr_mut", gp.generate_safe, min_=1, max_=5, terminal_types=terminal_types)
-# I'm worried that mutation isn't working properly
+# Check mutation is working properly
 toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
 
 
@@ -320,17 +321,67 @@ def showTree(tree):
     plt.show()
     return
 
-def main(ngen,popu,cxpb,mutpb,graph=True,parallel=True):
+def plot_pareto_front(paretofront, title=""):
+    x=[]
+    y=[]
+    for p in paretofront:
+        print("Ind: "+str(p))
+        fitness = p.fitness.values
+        print("Fit: "+str(fitness))
+        x.append(fitness[0])
+        y.append(fitness[1])
+    fig,ax=plt.subplots(figsize=(5,5))
+    ax.plot(x,y,".")
+    ax.set_title(title)
+    plt.show()
 
-    NGEN = ngen #maybe delete
+def plot_pop_pareto_front(pop,paretofront, title=""):
+    x=[]
+    y=[]
+    for p in paretofront:
+        fitness = p.fitness.values
+        x.append(fitness[0])
+        y.append(fitness[1])
+    xp=[]
+    yp=[]
+    for p in pop:
+        fitness = p.fitness.values
+        xp.append(fitness[0])
+        yp.append(fitness[1])
+    fig,ax=plt.subplots(figsize=(5,5))
+    ax.plot(xp,yp,".", label="Population")
+    ax.plot(x,y,".", label="Pareto Front")
+    fitpareto=list(zip(x,y))
+    fitpop=list(zip(xp,yp))
+    print("Pareto: "+str(fitpareto))
+    print("Population: "+str(fitpop))
+
+    ax.set_title(title)
+    plt.xlabel('% increase in profit', fontsize=16)
+    plt.ylabel('Number of Trades', fontsize=16)
+    plt.legend()
+    plt.show()
+
+def main(parallel=True):
 
     random.seed()
-    pop = toolbox.population(n=popu)
-    hof = tools.HallOfFame(1)
+    NGEN = 4
+    MU = 20
+    LAMBDA = 20
+    CXPB = 0.5
+    MUTPB = 0.2
+
+    # NGEN = 100
+    # MU = 100
+    # CXPB = 0.8
+
     stats = tools.Statistics(lambda ind: ind.fitness.values)
-    stats.register("avg", numpy.mean)
-    stats.register("min", numpy.min)
-    stats.register("max", numpy.max)
+    stats.register("avg", numpy.mean, axis=0)
+    stats.register("min", numpy.min, axis=0)
+    stats.register("max", numpy.max, axis=0)
+
+    logbook = tools.Logbook()
+    logbook.header = "gen", "evals", "min", "avg", "max"
 
     #multiprocessing
     if parallel:
@@ -338,133 +389,28 @@ def main(ngen,popu,cxpb,mutpb,graph=True,parallel=True):
         toolbox.register("map", pool.map)
         toolbox.register("map", futures.map)
 
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb, mutpb, ngen, stats, halloffame=hof)
-    #pop, logbook = algorithms.eaMuPlusLambda(pop, toolbox, 10, 10, cxpb, mutpb, ngen, stats, halloffame=hof)
+    pop = toolbox.population(n=MU)
+    hof = tools.HallOfFame(1)
+    pf = tools.ParetoFront()
+
+    all = []
+    # LOOK INTO THIS APPROACH FOR UNPACKING EACH GENERATION
+    for x in range(NGEN):
+        pop, logbook = algorithms.eaMuPlusLambda(pop, toolbox, MU, LAMBDA, CXPB, MUTPB, 1, stats, halloffame=hof)
+        for ind in pop:
+            all.append(ind)
+        if pf is not None:
+            pf.update(pop)
+
+    plot_pop_pareto_front(all, pf, "Gen: %d"%(x))
 
     if parallel:
         pool.close()
 
-    # I need to test each strategy on its own and ensure that buy and sell actions are occuring at the right time
-
-    if graph == True:
-        x = list(range(0, NGEN+1))
-        avg, max_, min_ = logbook.select("avg", "max", "min")
-
-        avg1 = numpy.array(avg)
-
-        plt.plot(x, avg,'x', label="Average fitness")
-        plt.plot(x, max_,'ro',label="Max fitness")
-        plt.legend()
-        plt.xlabel("Number of generations") # Add ", fontsize = #" to control fontsize
-        plt.ylabel("% increase in profit / fitness")
-        title = "Performance of GA (Population of "+str(popu)+" individuals, Crossover rate = "+str(cxpb)+", Mutation rate = "+str(mutpb)+")"
-        plt.title(title)
-        plt.show()
-
-    print(hof[0])
-    showTree(hof[0])
-    return hof[0]
-
-
-
-def testTree(individual):
-
-    rule = toolbox.compile(expr=individual)
-
-    startDate = '2020-01-01'
-    endDate = '2021-01-01'
-    amount = 1000
-    shares = 0
-    balance = 1000
-    returns = 0
-    equity = 0
-    startDay = datetime.strptime(startDate,'%Y-%m-%d')
-    endDay = datetime.strptime(endDate,'%Y-%m-%d')
-
-    panda = pd.read_csv('MSFT.csv')
-    dates = panda["Date"]
-    prices = panda["Close"]
-    combined = dict(zip(dates, round(prices,2)))
-    iter = 0
-    startCount = 0
-    bhBalance = 0
-    bhShares = 0
-    position = False
-
-    for date, price in combined.items(): # Need to make within the sim time frame
-        # to start the sim from the start date
-
-        if datetime.strptime(date,'%Y-%m-%d') < startDay and startCount == 0:
-            continue
-        # calculating the b&h strategy at start date
-        elif startCount == 0:
-            startD = date
-            startCount = 1
-            bhShares = amount / combined[date]
-
-
-        if iter == 0:
-            oldDate = date
-            iter += 1
-            continue
-
-
-        action = rule(date,position)
-
-        if action and position == False:
-            buy = True
-            sell = False
-        elif not action and position == False:
-            sell = False
-            buy = False
-        elif action and position == True:
-            sell = True
-            buy = False
-        elif not action and position == True:
-            sell = False
-            buy = False
-
-        if buy:# and position == False:
-            position = True
-            shares = amount/price
-            balance -= amount
-            print("----- BUY £",amount," -----")
-            print('On date: ',date)
-            print("Bought ",round(shares,4),' shares at price ',price,'\n')
-
-        elif sell and shares > 0: #and position == True:
-            position = False
-            balance = shares*price
-            profit = balance - amount
-            returns += profit
-            print("----- SELL £",round(balance,2)," -----")
-            print("Profit from indivdual sale: ",round(profit,2))
-            print('On date: ',date)
-            print("Sold ",round(shares,4),' shares at price ',price,'\n')
-
-        elif shares != 0:
-            equity = price*shares
-
-        # to end the sim at the end date
-
-        if datetime.strptime(date,'%Y-%m-%d') >= endDay:
-            bhBalance = bhShares*combined[oldDate]
-            break
-
-        oldDate = date
-        answer = (((returns+equity)-amount)/amount)*100
-
-    return round(answer,2),#, returns+equity
+    return pop, logbook
 
 
 if __name__ == "__main__":
-
-    NUM_GENERATIONS = 10
-    POPULATION = 30
-    CXPB = 0.6
-    MUTPB = 0.2
     freeze_support()
     random.seed()
-    rule = main(NUM_GENERATIONS,POPULATION,CXPB,MUTPB,parallel=True)
-    print("----- RULE: ", rule, " --------")
-    testTree(rule)
+    pop, stats = main()

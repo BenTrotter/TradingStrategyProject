@@ -582,4 +582,4 @@ def load(ticker,startDate,endDate):
 
 if __name__ == "__main__":
 
-    load("MSFT",'2017-12-25','2021-02-10')
+    load("MSFT",'2017-01-01','2021-01-01')
