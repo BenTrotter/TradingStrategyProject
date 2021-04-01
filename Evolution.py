@@ -46,22 +46,23 @@ resolution = '1d'
 # 4 : PC and Risk Exposure
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
-objectivesOption = 6
+objectivesOption = 1
 
 notification = False # True if send a notification when complete
 
 trainingStart = "2013-01-01"
-trainingEnd = "2014-01-01"
+trainingEnd = "2015-01-01"
 unseenStart = "2014-01-01"
-unseenEnd = "2015-01-01"
+unseenEnd = "2021-01-01"
 k = 12
+unseenk = 6
 riskFreeRate = 0.05
 
 # Evolution parameters
-ngen = 4
-mu = 30
-cxpb = 0.4
-mutpb = 0.5
+ngen = 80
+mu = 100
+cxpb = 0.5
+mutpb = 0.4
 # -------------------------------------------------------------------- #
 
 class pd_float(object):
@@ -315,7 +316,7 @@ def simulation(individual):
         if datetime.strptime(date, '%Y-%m-%d') >= performanceConsistencyDates[pcIter]:
             percentIncPriceTest = ((price-oldPrice)/oldPrice)*100
             percentIncBalanceStrategy =  ((balance-oldBalance)/oldBalance)*100
-            if percentIncPriceTest < percentIncBalanceStrategy:
+            if percentIncPriceTest <= percentIncBalanceStrategy:
                 pcCount += 1
             oldPrice = price
             oldBalance = balance
@@ -374,7 +375,7 @@ def simulation(individual):
     if(pcIter != pcSplit):
         percentIncPriceTest = ((price-oldPrice)/oldPrice)*100
         percentIncBalanceStrategy =  ((balance-oldBalance)/oldBalance)*100
-        if percentIncPriceTest < percentIncBalanceStrategy:
+        if percentIncPriceTest <= percentIncBalanceStrategy:
             pcCount += 1
         pcIter+=1
 
@@ -588,7 +589,7 @@ def main(s,e,parallel=True,save=True):
     MU = mu
     CXPB = cxpb
     MUTPB = mutpb
-    print("\nEvolution Info:")
+    print("\n * ----------------- Evolution Info ----------------- *")
     if objectivesOption == 1:
         print("Using two objectives: Profit and PC")
     elif objectivesOption == 2:
@@ -606,7 +607,8 @@ def main(s,e,parallel=True,save=True):
     print("Population size: ",MU)
     print("CXPB: ",CXPB)
     print("MUTPB: ",MUTPB)
-    print("PC k value is: ",k,"\n")
+    print("PC k value is: ",k)
+    print("Training PC split is: ",splitTrainingPeriod(datetime.strptime(s,'%Y-%m-%d'), datetime.strptime(e,'%Y-%m-%d'), k),"\n")
     print("Training on data from ",s," to ",e,"\n")
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -792,7 +794,7 @@ def unseen(paretofront, tStart, tEnd):
         # Converting date strings to  datetime objects
         startDay = datetime.strptime(startDate,'%Y-%m-%d')
         endDay = datetime.strptime(endDate,'%Y-%m-%d')
-        pcSplit = k # The number of intervals to split the trading window into for PC
+        pcSplit = unseenk # The number of intervals to split the trading window into for PC
         # Get the interval in days for PC
         interval = splitTrainingPeriod(startDay, endDay, pcSplit)
         # Get the dates that the PC count needs to be checked and updated.
@@ -828,7 +830,7 @@ def unseen(paretofront, tStart, tEnd):
             if datetime.strptime(date, '%Y-%m-%d') >= performanceConsistencyDates[pcIter]:
                 percentIncPriceTest = ((price-oldPrice)/oldPrice)*100
                 percentIncBalanceStrategy =  ((balance-oldBalance)/oldBalance)*100
-                if percentIncPriceTest < percentIncBalanceStrategy:
+                if percentIncPriceTest <= percentIncBalanceStrategy:
                     pcCount += 1
                 oldPrice = price
                 oldBalance = balance
@@ -887,7 +889,7 @@ def unseen(paretofront, tStart, tEnd):
         if(pcIter != pcSplit):
             percentIncPriceTest = ((price-oldPrice)/oldPrice)*100
             percentIncBalanceStrategy =  ((balance-oldBalance)/oldBalance)*100
-            if percentIncPriceTest < percentIncBalanceStrategy:
+            if percentIncPriceTest <= percentIncBalanceStrategy:
                 pcCount += 1
             pcIter+=1
 
@@ -895,8 +897,10 @@ def unseen(paretofront, tStart, tEnd):
         if(pcIter != pcSplit):
             print("\nASSERT ERROR: Not all pc intervals have been calculated.\n")
 
-        bhEndValue = bhShares * price
-        bhIncrease = ((bhEndValue-startingBalance)/startingBalance)*100
+        if BandH:
+            bhEndValue = bhShares * price
+            bhIncrease = ((bhEndValue-startingBalance)/startingBalance)*100
+
         answer = ((balance - startingBalance)/startingBalance)*100
    
         aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
@@ -911,9 +915,10 @@ def unseen(paretofront, tStart, tEnd):
             numTrades = 100
             riskExposure = 100
 
+        above = round(((round(answer,2)-round(bhIncrease,2))/round(bhIncrease,2))*100,2)
         # print(i)
         # print("Training score: ",i.fitness.values[0]," Unseen score: ",round(answer,2),'\n')
-        pcDict[str(i)] = [pcCount,round(answer,2),i.fitness.values[0],sharpe]
+        pcDict[str(i)] = [pcCount,round(answer,2),i.fitness.values[0],sharpe,above]
 
     return pcDict, interval
 
@@ -927,8 +932,9 @@ def processPareto(paretoDict, interval):
     for key,v in sorted_d.items():
         print("Strategy:")
         print(key)
-        print("Achieved a pc score of ",v[0],"/",k, " on unseen data.")
-        print("Training score: ",v[2]," Unseen score: ",v[1])
+        print("Achieved a pc score of ",v[0],"/",unseenk, " on unseen data.")
+        print("Training score: ",v[2])
+        print("Unseen score: ",v[1]," -> This is an change of ",v[4],"% from the B&H.")
         print("Sharpe ratio: ",v[3],'\n')
 
 # Graph of final unseen results taking just the top ten maybe
