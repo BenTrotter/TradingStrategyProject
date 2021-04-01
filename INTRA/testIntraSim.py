@@ -1,6 +1,5 @@
 import random
 import operator
-import math
 import csv
 import itertools
 
@@ -23,13 +22,13 @@ from deap import gp
 from datetime import datetime, timedelta
 import pandas as pd
 
-file = 'MSFT.csv'
+file = 'TSLA.csv'
 
 def ma(date,window):
 
     panda = pd.read_csv(file) # Maybe set MSFT.csv variable to a global variable
     mas = panda["SMA "+str(window)+".0"]
-    dates = panda["Date"]
+    dates = panda["Datetime"]
     dict1 = dict(zip(dates,mas))
     ma = dict1[date]
     return ma
@@ -38,7 +37,7 @@ def rsi(date,window):
 
     panda = pd.read_csv(file)
     rsi = panda["RSI "+str(window)+".0"]
-    dates = panda["Date"]
+    dates = panda["Datetime"]
     dict1 = dict(zip(dates,rsi))
     RSI = dict1[date]
     return RSI
@@ -47,7 +46,7 @@ def ema(date,window):
 
     panda = pd.read_csv(file)
     emas = panda["EMA "+str(window)+".0"]
-    dates = panda["Date"]
+    dates = panda["Datetime"]
     dict1 = dict(zip(dates,emas))
     ema = dict1[date]
     return ema
@@ -57,7 +56,7 @@ def macd(date,s,f,sig):
     panda = pd.read_csv(file)
     macd = panda["MACD "+str(s)+str(f)]
     sig = panda["MACD Signal "+str(sig)+str(s)+str(f)]
-    dates = panda["Date"]
+    dates = panda["Datetime"]
     dict1 = dict(zip(dates,macd))
     dict2 = dict(zip(dates,sig))
     macd1 = dict1[date]
@@ -70,7 +69,7 @@ def so(date,window):
     panda = pd.read_csv(file)
     SO = panda["SO "+str(window)]
     sig = panda["%D 3-"+str(window)] # Maybe make this a variable that is explored by the algorithm
-    dates = panda["Date"]
+    dates = panda["Datetime"]
     dict1 = dict(zip(dates,SO))
     dict2 = dict(zip(dates,sig))
     so = dict1[date]
@@ -111,13 +110,13 @@ def getPriceDataDict(csv,startDate,endDate):
     to only contain the relevant data between certain dates.
     """
     panda = pd.read_csv(csv)
-    panda["Date"] = pd.to_datetime(panda['Date']) # date column to datetime
+    panda["Datetime"] = pd.to_datetime(panda['Datetime']) # date column to datetime
     # retrieve dates from series between start and end date
-    mask = (panda['Date'] > startDate) & (panda['Date'] <= endDate)
+    mask = (panda['Datetime'] > startDate) & (panda['Datetime'] <= endDate)
     panda = panda.loc[mask]
     prices = panda["Close"]
     panda = panda.astype(str) # make everything in the panda to a string
-    dates = panda['Date']
+    dates = panda['Datetime']
     combined = dict(zip(dates, round(prices,2)))
 
     return combined
@@ -172,8 +171,8 @@ def plot_action(data):
 
 def simulation():
 
-    startDate = '2013-01-01' # Start date of the overall trading window.
-    endDate = '2015-09-15' # End date of the overall trading window.
+    startDate = "2021-03-19 08:00:00" # Start date of the overall trading window.
+    endDate = "2021-03-19 17:00:00" # End date of the overall trading window.
     shares = 0 # The number of shares that the trader currently owns.
     position = False # Whether the trader is currently invested in the stock.
     startingBalance = 1000 # The starting amount that the trader will trade with.
@@ -182,9 +181,9 @@ def simulation():
     iter = 0
     findStart = False # Bool to help find the first tradable start date.
     # Converting date strings to  datetime objects
-    startDay = datetime.strptime(startDate,'%Y-%m-%d')
-    endDay = datetime.strptime(endDate,'%Y-%m-%d')
-    pcSplit = 12 # The number of intervals to split the trading window into for PC
+    startDay = datetime.strptime(startDate,'%Y-%m-%d %H:%M:%S')
+    endDay = datetime.strptime(endDate,'%Y-%m-%d %H:%M:%S')
+    pcSplit = 4 # The number of intervals to split the trading window into for PC
     # Get the interval in days for PC
     interval = splitTrainingPeriod(startDay, endDay, pcSplit)
     # Get the dates that the PC count needs to be checked and updated.
@@ -193,11 +192,6 @@ def simulation():
     performanceConsistencyDates = getPCUpdateDates(startDay, endDay, interval)
     # Gets a dict of date and price as keys and values.
     priceData = getPriceDataDict(file,startDay,endDay)
-
-    riskFreeRate = 0.05
-    rateOfReturn = []
-    dailyReturn = []
-
 
     buys = []
     sells = []
@@ -213,7 +207,7 @@ def simulation():
 
     for date, price in priceData.items(): # Need to make within the sim time frame
         # to start the sim from the start date
-        if datetime.strptime(date,'%Y-%m-%d') < startDay and not findStart:
+        if datetime.strptime(date,'%Y-%m-%d %H:%M:%S') < startDay and not findStart:
             continue
         # calculating the b&h strategy at start date and the first PC interval.
         elif not findStart:
@@ -229,7 +223,7 @@ def simulation():
             continue
 
         # PC update if the correct date has been reached
-        if datetime.strptime(date, '%Y-%m-%d') >= performanceConsistencyDates[pcIter]:
+        if datetime.strptime(date, '%Y-%m-%d %H:%M:%S') >= performanceConsistencyDates[pcIter]:
             print('PC check: ', pcIter,' on ',date)
             percentIncPriceTest = ((price-oldPrice)/oldPrice)*100
             percentIncBalanceStrategy =  ((balance-oldBalance)/oldBalance)*100
@@ -242,9 +236,7 @@ def simulation():
             oldBalance = balance
             pcIter+=1
 
-        #action = operator.or_(operator.lt(ema(date, 12), ema(date, 26)), operator.or_(operator.gt(0, so(date, 7)), operator.gt(ma(date, 200), ma(date, 10))))
-        action = operator.gt(ema(date, 12), ema(date, 26))
-
+        action = operator.not_(operator.not_(operator.gt(0, macd(date, 26, 12, 9))))
         if action and position == False:
             buy = True
             sell = False
@@ -264,7 +256,6 @@ def simulation():
             shares = balance/price
             oldAmount = balance
             balance = round(price*shares,2)
-            balanceSave = balance
             buys.append(date)
             data[date] = [price,True,False]
             print("----- BUY £",round(balance,2)," -----")
@@ -274,13 +265,11 @@ def simulation():
         elif sell and shares > 0:
             position = False
             balance = round(shares*price, 2)
-            percentReturnOfTrade = round((((balance - balanceSave)/balanceSave)*100),2)
-            rateOfReturn.append(percentReturnOfTrade)
             profit = balance - oldAmount
             sells.append(date)
             data[date] = [price,False,True]
             print("----- SELL £",round(balance,2)," -----")
-            print("Profit from indivdual sale: ",round(profit,2)," or ",percentReturnOfTrade,'%')
+            print("Profit from indivdual sale: ",round(profit,2))
             print('On date: ',date)
             print("Sold ",round(shares,4),' shares at price ',price,'\n')
             shares = 0
@@ -295,27 +284,15 @@ def simulation():
             riskExposure += 1
 
         # Ends the simulation at the end date
-        if datetime.strptime(date,'%Y-%m-%d') >= endDay:
-            if position:
-                balance = round(shares*price, 2)
-                percentReturnOfTrade = round((((balance - balanceSave)/balanceSave)*100),2)
-                rateOfReturn.append(percentReturnOfTrade)
+        if datetime.strptime(date,'%Y-%m-%d %H:%M:%S') >= endDay:
             bhBalance = bhShares*priceData[oldDate]
             break
 
         oldDate = date
-        
-        if position:
-            dailyReturn.append((((price-oldP)/oldP)*100)-0.05/252)
-        else:
-            dailyReturn.append(0-0.05/252) # add risk free rate of 0.05 as a global variable
-        
-        oldP = price
-
 
     # Final peformance consitency check on final iterval
     if(pcIter != pcSplit):
-        percentIncPriceTest = ((price-oldPrice)/oldPrice)*100.0
+        percentIncPriceTest = ((price-oldPrice)/oldPrice)*100
         percentIncBalanceStrategy =  ((balance-oldBalance)/oldBalance)*100
         if percentIncPriceTest < percentIncBalanceStrategy:
             pcCount += 1
@@ -329,24 +306,13 @@ def simulation():
     # Check to ensure every interval as been included in the PC count
     if(pcIter != pcSplit):
         print("\nERROR: Not all pc intervals have been calculated.\n")
-    
 
-    aveReturn = sum(rateOfReturn) / len(rateOfReturn)
-    stdRateOfReturn = numpy.std(rateOfReturn)
-    sharpe = round((math.sqrt(len(rateOfReturn)) * ((aveReturn - riskFreeRate) / stdRateOfReturn)),2)
-    sharpe1 = round(((aveReturn - riskFreeRate)/stdRateOfReturn),2)
-    sharpe2 = round(((aveReturn - ((riskFreeRate/252)*riskExposure))/stdRateOfReturn),2)
-
-    aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
-    stdDailyRateOfReturn = numpy.std(dailyReturn)
-    sharpe3 = round(numpy.sqrt(252) * aveDailyReturn / stdDailyRateOfReturn,2)
 
     answer = ((balance - startingBalance)/startingBalance)*100
     print("Percentage increase by ", date," is ", round(answer,2))
     print("Number of trades: ",numTrades)
     print("Risk exposure: ",riskExposure)
     print("PC count: ",pcCount)
-    print("Sharpe Ratio: ",sharpe1,' or ', sharpe,' or ',sharpe2,' or ',sharpe3)
 
     if numTrades == 0:
         numTrades = 100

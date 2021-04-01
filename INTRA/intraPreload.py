@@ -8,6 +8,8 @@ import os
 from datetime import datetime, timedelta
 # Require python 3.6 or greater as dictionary ordering is used.
 
+resolution = 5 # in minutes
+
 def yfDownload(ticker,start,end,gap):
     """
     Downloads historic data from yfinance api and saves the information into
@@ -17,10 +19,31 @@ def yfDownload(ticker,start,end,gap):
     @param start the start date for the data
     @param end the end date for the data.
     """
-    print("\nDownloading ",ticker," data from Yahoo Finance")
-    panda = yf.download(ticker,start,end,interval=gap)
-    print("\n")
+    panda = yf.download(ticker, start=start, end=end, interval = str(resolution)+'m')
+    panda.drop(panda.tail(1).index,inplace=True)
     panda.to_csv(os.path.abspath(os.getcwd())+'/'+ticker+'.csv')
+
+
+def removeTrailingTime(ticker,csv1):
+    """
+    Opens a csv and rewrites the datetime column by removing the trailing
+    time. Yfinace automaticallly includes it but we do not want it.
+
+    @param ticker as a string to be used for renaming
+    @param the csv file to edit
+    """
+    with open(csv1, mode='r') as inp, open('Remove0.csv', mode='w') as out:
+        writer = csv.writer(out)
+        for row in csv.reader(inp):
+            if row[0] == "Datetime":
+                writer.writerow(row)
+                continue
+            row[0] = row[0][:-6]
+            writer.writerow(row)
+
+    # replace new csv with old name and remove the old.
+    os.remove(ticker+'.csv')
+    os.rename('Remove0.csv',ticker+'.csv')
 
 
 def csvDict(csvName):
@@ -35,9 +58,10 @@ def csvDict(csvName):
     with open(csvName, mode='r') as infile:
         reader = csv.reader(infile)
         for row in reader:
-            if row[0] == "Date":
+            if row[0] == "Datetime" or row[0] == '':
                 continue
-            key = datetime.strptime(row[0], '%Y-%m-%d')
+            #row[0] = row[0][:-6] # removing the -04:00 from the end
+            key = datetime.strptime(row[0], '%Y-%m-%d %H:%M:%S')
             mydict[key] = round(float(row[4]),2)
     return mydict
 
@@ -53,9 +77,10 @@ def csvDictHL(csvName):
     with open(csvName, mode='r') as infile:
         reader = csv.reader(infile)
         for row in reader:
-            if row[0] == "Date":
+            if row[0] == "Datetime" or row[0] == '':
                 continue
-            key = datetime.strptime(row[0], '%Y-%m-%d')
+            #row[0] = row[0][:-6] # removing the -04:00 from the end
+            key = datetime.strptime(row[0], '%Y-%m-%d %H:%M:%S')
             mydict[key] = [round(float(row[2]),2),round(float(row[3]),2),round(float(row[4]),2)]
     return mydict
 
@@ -70,26 +95,26 @@ def findMovingAverage(date,window,data):
     @param data the dictionary containing the financial data.
     @return an value for the moving average
     """
-    day = date
+    time = date
     count = 0
     try:
         while count < window: # Going back finding the start date excluding weekends
             try:
-                data[day]
+                data[time]
                 count+=1
             except KeyError:
                 pass
-            day -= timedelta(days=1)
+            time -= timedelta(minutes=resolution)
         maList = []
         count1 = 0
-        day += timedelta(days=1)
+        time += timedelta(minutes=resolution)
         while count1 < count:
             try:
-                maList.append(data[day])
+                maList.append(data[time])
                 count1 += 1
             except KeyError:
                 pass
-            day += timedelta(days=1)
+            time += timedelta(minutes=resolution)
 
         movingAve = round((sum(maList)/len(maList)),2)
 
@@ -116,7 +141,7 @@ def addColum(colName,dict,csv):
     @param csv the name of the csv file to add the column.
     """
     df = pd.read_csv(csv)
-    df[colName] = df['Date'].map(dict)
+    df[colName] = df["Datetime"].map(dict)
     df.to_csv(os.path.abspath(os.getcwd())+'/'+csv,index=False)
 
 
@@ -167,71 +192,12 @@ def moveAveList(window,data):
     for k,v in data.items():
         count += 1
         if count < window:
-            maList[datetime.strftime(k,'%Y-%m-%d')] = 0
+            maList[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = 0
             continue
         ans = findMovingAverage(k,window,data)
-        maList[datetime.strftime(k,'%Y-%m-%d')] = ans
+        maList[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = ans
     return maList
 
-
-# def getROC(date,window,data):
-#     """
-#     Returns the rate of change(ROC) for a certain  date. The ROC window only
-#     takes into account trading days so weekends are excluded.
-#
-#     @param date the date to find the ROC for.
-#     @param window the ROC time period.
-#     @param data the dictionary containing the financial data.
-#     @return an value for the ROC as a percentage.
-#     """
-#     priceNew = data[date]
-#     day = date
-#     count = 0
-#     try:
-#         while count <= window: # Going back finding the start date excluding weekends
-#             try:
-#                 data[day]
-#                 count+=1
-#             except KeyError:
-#                 pass
-#             day -= timedelta(days=1)
-#
-#         priceOld = data[day+timedelta(days=1)]
-#
-#     except KeyError:
-#         raise KeyError
-#
-#     roc = ((priceNew - priceOld)/priceOld)*100
-#
-#     return round(roc,2)
-#
-#
-# def getROCSeries(mydict,window):
-#     """
-#     Returns a dictionary containing the rate of change(ROC) data for each
-#     day.
-#
-#     @param mydict the dictionary containing the financial data.
-#     @param window the window for the ROC to be calculated.
-#     @return a dictionary containing ROC data.
-#     """
-#     rocSeries = {}
-#     count = 0
-#
-#     for k,v in mydict.items():
-#         count += 1
-#         if count < window+1:
-#             rocSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
-#             continue
-#
-#         try:
-#             roc = getROC(k,window,mydict)
-#             rocSeries[datetime.strftime(k,'%Y-%m-%d')] = roc
-#
-#         except KeyError:
-#             rocSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
-#
-#     return rocSeries
 
 
 def getEMA(dateTo,window,data):
@@ -250,6 +216,7 @@ def getEMA(dateTo,window,data):
     count = 0
     newEMA = 0
     for k,v in data.items():
+
         count += 1
         if count < window:
             continue
@@ -283,14 +250,14 @@ def getEMASeries(mydict,window):
     for k,v in mydict.items():
         count += 1
         if count < window+1:
-            emaSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
+            emaSeries[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = 0
             continue
         try:
             ema = getEMA(k,window,mydict)
-            emaSeries[datetime.strftime(k,'%Y-%m-%d')] = ema
+            emaSeries[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = ema
 
         except OverflowError:
-            emaSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
+            emaSeries[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = 0
 
     return emaSeries
 
@@ -317,7 +284,7 @@ def findHL(date,data,window):
                 count+=1
             except KeyError:
                 pass
-            day -= timedelta(days=1)
+            day -= timedelta(minutes=resolution)
 
     except KeyError:
         raise KeyError
@@ -349,7 +316,7 @@ def getSOSeries(hldata,window):
         p = v[2]
         h,l = findHL(k,hldata,window)
         SO = ((p-l)/(h-l))*100
-        soSeries[datetime.strftime(k,'%Y-%m-%d')] = round(SO,2)
+        soSeries[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = round(SO,2)
         soSTRSeries[k] = round(SO,2)
 
     return soSeries,soSTRSeries
@@ -377,7 +344,7 @@ def getMACDSeries(mydict,slow,fast):
     for k,v in mydict.items():
         count += 1
         if count < 80: # This value could go as low as 26 but its higher to ensure more accurate ema's
-            macdSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
+            macdSeries[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = 0
             macdSeriesDT[k] = 0
             continue
         try:
@@ -385,11 +352,11 @@ def getMACDSeries(mydict,slow,fast):
             fastEma = getEMA(k,fast,mydict)
             MACD = fastEma - slowEma
 
-            macdSeries[datetime.strftime(k,'%Y-%m-%d')] = round(MACD,2)
+            macdSeries[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = round(MACD,2)
             macdSeriesDT[k] = round(MACD,2)
 
         except OverflowError:
-            macdSeries[datetime.strftime(k,'%Y-%m-%d')] = 0
+            macdSeries[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = 0
             macdSeriesDT[k] = 0
 
     return macdSeriesDT, macdSeries
@@ -409,11 +376,11 @@ def getMacdSignal(mydict,window):
     for k,v in mydict.items():
         count += 1
         if count < 80: #this 80 value should be window + something
-            signal[datetime.strftime(k,'%Y-%m-%d')] = 0
+            signal[datetime.strftime(k,'%Y-%m-%d %H:%M:%S')] = 0
             continue
 
         ema = getEMA(k,window,mydict)
-        signal[datetime.strftime( k,'%Y-%m-%d')] = round(ema,2)
+        signal[datetime.strftime( k,'%Y-%m-%d %H:%M:%S')] = round(ema,2)
 
     return signal
 
@@ -424,7 +391,7 @@ def getRSI(window,dict1):
     dates = []
     for k,v in dict1.items():
         prices.append(v)
-        dates.append(datetime.strftime( k,'%Y-%m-%d'))
+        dates.append(datetime.strftime( k,'%Y-%m-%d %H:%M:%S'))
     i = 0
     upPrices=[]
     downPrices=[]
@@ -493,7 +460,7 @@ def getRSI(window,dict1):
     z=0
     rsiDict = {}
     for k,v in dict1.items():
-        rsiDict[datetime.strftime( k,'%Y-%m-%d')] = round(RSI[z],2)
+        rsiDict[datetime.strftime( k,'%Y-%m-%d %H:%M:%S')] = round(RSI[z],2)
         z+=1
 
     return rsiDict
@@ -512,13 +479,16 @@ def trimCSV(csv1,start,end):
     @param start the start date of the trimmed csv file
     @param end the end date of the trimmed csv file
     """
-    s = datetime.strptime( start,'%Y-%m-%d')
-    e = datetime.strptime( end,'%Y-%m-%d')
+    start = start+" 08:00:00"
+    end = str(end)+" 08:00:00"
+
+    s = datetime.strptime( start,'%Y-%m-%d %H:%M:%S')
+    e = datetime.strptime( end,'%Y-%m-%d %H:%M:%S')
     dateRange = []
 
     while(s != e):
         dateRange.append(s)
-        s += timedelta(days=1)
+        s += timedelta(minutes=resolution)
 
     with open(csv1, mode='r') as inp, open('Trim.csv', mode='w') as out:
         writer = csv.writer(out)
@@ -528,26 +498,38 @@ def trimCSV(csv1,start,end):
                 writer.writerow(row)
                 count = 1
                 continue
-            if datetime.strptime( row[0],'%Y-%m-%d') in dateRange:
+            if datetime.strptime( row[0],'%Y-%m-%d %H:%M:%S') in dateRange:
                 writer.writerow(row)
                 continue
 
+def trimCSValpaca(csv1):
 
+    holder = []
+    with open(csv1, mode='r') as inp, open('Trim.csv', mode='w') as out:
+        writer = csv.writer(out)
+        count = 0
+        for row in csv.reader(inp):
+            holder.append(row)
+        writer.writerow(holder[0])
+        writer.writerow(holder[-1])
 
-def load(ticker,startDate,endDate,interval):
+def loadIntra(ticker,startDate,endDate,interval):
     # download data for 3 years before the startdate to increase accuracy of precomputaion
-    beforeStart = datetime.strptime( startDate,'%Y-%m-%d') - timedelta(days=1095)
+    beforeStart = datetime.strptime( startDate,'%Y-%m-%d') - timedelta(days=6)
     yfDownload(ticker,beforeStart,endDate,interval)
     csv = ticker+".csv"
+
+    removeTrailingTime(ticker,csv)
+
     mydict = csvDict(csv)
     mydicthl = csvDictHL(csv)
 
-    maWindows = [5, 10, 20, 30, 50, 100, 200]
+    maWindows = [5, 10, 20, 30, 50, 100, 200,300]
     for i in maWindows:
         dict = moveAveList(i,mydict)
         addColum('SMA '+str(i)+'.0',dict,csv)
 
-    emaWindows = [5, 12, 26, 30, 50, 100, 200]
+    emaWindows = [5, 12, 26, 30, 50, 100, 200,300]
     for i in emaWindows:
         dict1 = getEMASeries(mydict,i)
         addColum('EMA '+str(i)+'.0',dict1,csv)
@@ -575,12 +557,14 @@ def load(ticker,startDate,endDate,interval):
         addColum('SO '+str(w),soDict,csv)
         addColum('%D 3-'+str(w),soDDict,csv)
 
-
     trimCSV(csv,startDate,endDate)
     os.remove(ticker+'.csv')
     os.rename('Trim.csv',ticker+'.csv')
+    print("Finished loading and processing data\n")
+
 
 
 if __name__ == "__main__":
 
-    load("MSFT",'2013-01-01','2020-01-01','1d')
+    # change k in PC to be number of days between training
+    loadIntra("WBA",'2021-03-13','2021-03-27', str(resolution)+'m')
