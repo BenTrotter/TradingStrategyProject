@@ -293,6 +293,7 @@ def simulation(individual):
 
     dailyReturn = []
     oldP = False
+    numTDays = len(priceData)
 
     for date, price in priceData.items(): # Need to make within the sim time frame
         # to start the sim from the start date
@@ -364,9 +365,9 @@ def simulation(individual):
 
         if oldP != False:
             if position:
-                dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/252) # 252 annualises the ratio
+                dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/numTDays) # 252 annualises the ratio
             else:
-                dailyReturn.append(0-riskFreeRate/252)
+                dailyReturn.append(0-riskFreeRate/numTDays)
 
         oldP = price
 
@@ -388,7 +389,7 @@ def simulation(individual):
     # Sharpe Ratio
     aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
     stdDailyRateOfReturn = numpy.std(dailyReturn)
-    sharpeRatio = round(numpy.sqrt(252) * aveDailyReturn / stdDailyRateOfReturn,2)
+    sharpeRatio = round(numpy.sqrt(numTDays) * aveDailyReturn / stdDailyRateOfReturn,2)
 
     # Buy and hold calculation.
     # bhEndValue = bhShares * price
@@ -687,9 +688,9 @@ def main(s,e,parallel=True,save=True):
         elif objectivesOption == 4:
             hypers[gen] = hypervolume(pop, [1.0, 50])
         elif objectivesOption == 5:
-            hypers[gen] = hypervolume(pop, [0.0, 0.0])
+            hypers[gen] = hypervolume(pop, [1.0, 0.5])
         elif objectivesOption == 6:
-            hypers[gen] = hypervolume(pop, [0.0, 0.0, 0.0])
+            hypers[gen] = hypervolume(pop, [1.0, 1.0, 0.5])
 
         print(logbook.stream)
 
@@ -791,6 +792,7 @@ def unseen(paretofront, tStart, tEnd):
 
         dailyReturn = []
         oldP = False
+        numTrDays = len(priceData)
 
         for date, price in priceData.items(): # Need to make within the sim time frame
             # to start the sim from the start date
@@ -862,9 +864,9 @@ def unseen(paretofront, tStart, tEnd):
 
             if oldP != False:
                 if position:
-                    dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/252)
+                    dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/numTrDays)
                 else:
-                    dailyReturn.append(0-riskFreeRate/252) # add risk free rate of 0.05 as a global variable
+                    dailyReturn.append(0-riskFreeRate/numTrDays) # add risk free rate of 0.05 as a global variable
 
             oldP = price
 
@@ -888,7 +890,7 @@ def unseen(paretofront, tStart, tEnd):
 
         aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
         stdDailyRateOfReturn = numpy.std(dailyReturn)
-        sharpe = round(numpy.sqrt(252) * aveDailyReturn / stdDailyRateOfReturn,2)
+        sharpe = round(numpy.sqrt(numTrDays) * aveDailyReturn / stdDailyRateOfReturn,2)
 
         if BandH:
             print("Buy and Hold % increase for unseen is ", round(bhIncrease,2),"\n")

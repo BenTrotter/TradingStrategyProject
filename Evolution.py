@@ -46,23 +46,23 @@ resolution = '1d'
 # 4 : PC and Risk Exposure
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
-objectivesOption = 1
+objectivesOption = 5
 
 notification = False # True if send a notification when complete
 
 trainingStart = "2013-01-01"
 trainingEnd = "2015-01-01"
-unseenStart = "2014-01-01"
+unseenStart = "2015-01-01"
 unseenEnd = "2021-01-01"
 k = 12
 unseenk = 6
 riskFreeRate = 0.05
 
 # Evolution parameters
-ngen = 80
-mu = 100
-cxpb = 0.5
-mutpb = 0.4
+ngen = 8
+mu = 10
+cxpb = 0.4
+mutpb = 0.5
 # -------------------------------------------------------------------- #
 
 class pd_float(object):
@@ -294,6 +294,7 @@ def simulation(individual):
 
     dailyReturn = []
     oldP = False
+    numTDays = len(priceData)
 
     for date, price in priceData.items(): # Need to make within the sim time frame
         # to start the sim from the start date
@@ -363,12 +364,13 @@ def simulation(individual):
 
         oldDate = date
 
+        # Sharpe Ratio
         if oldP != False:
             if position:
-                dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/252) # 252 annualises the ratio
+                dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/numTDays)
             else:
-                dailyReturn.append(0-riskFreeRate/252)
-        
+                dailyReturn.append(0-riskFreeRate/numTDays)
+
         oldP = price
 
     # Final peformance consitency check on final iterval
@@ -389,13 +391,13 @@ def simulation(individual):
     # Sharpe Ratio
     aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
     stdDailyRateOfReturn = numpy.std(dailyReturn)
-    sharpeRatio = round(numpy.sqrt(252) * aveDailyReturn / stdDailyRateOfReturn,2)
+    sharpeRatio = round(numpy.sqrt(numTDays) * aveDailyReturn / stdDailyRateOfReturn,2)
 
     # Buy and hold calculation.
     # bhEndValue = bhShares * price
     # bhIncrease = ((bhEndValue-startingBalance)/startingBalance)*100
     # print("Buy and Hold % increase for seen is ", round(bhIncrease,2),"\n")
-    
+
     # Sharpe Ratio
 
     if numTrades == 0:
@@ -591,25 +593,25 @@ def main(s,e,parallel=True,save=True):
     MUTPB = mutpb
     print("\n * ----------------- Evolution Info ----------------- *")
     if objectivesOption == 1:
-        print("Using two objectives: Profit and PC")
+        print(" * Using two objectives: Profit and PC")
     elif objectivesOption == 2:
-        print("Using three objectives: Profit, PC and Risk Exposure")
+        print(" * Using three objectives: Profit, PC and Risk Exposure")
     elif objectivesOption == 3:
-        print("Using four objectives: Profit, PC, Risk Exposure and Number of trades")
+        print(" * Using four objectives: Profit, PC, Risk Exposure and Number of trades")
     elif objectivesOption == 4:
-        print("Using two objectives: PC and Risk Exposure")
+        print(" * Using two objectives: PC and Risk Exposure")
     elif objectivesOption == 5:
-        print("Using two objectives: Profit and Sharpe Ratio")
+        print(" * Using two objectives: Profit and Sharpe Ratio")
     elif objectivesOption == 6:
-        print("Using three objectives: Profit, PC and Sharpe Ratio")
-    print("Retrieving data from ", file)
-    print("Number of generations: ",NGEN)
-    print("Population size: ",MU)
-    print("CXPB: ",CXPB)
-    print("MUTPB: ",MUTPB)
-    print("PC k value is: ",k)
-    print("Training PC split is: ",splitTrainingPeriod(datetime.strptime(s,'%Y-%m-%d'), datetime.strptime(e,'%Y-%m-%d'), k),"\n")
-    print("Training on data from ",s," to ",e,"\n")
+        print(" * Using three objectives: Profit, PC and Sharpe Ratio")
+    print(" * Retrieving data from ", file)
+    print(" * Number of generations: ",NGEN)
+    print(" * Population size: ",MU)
+    print(" * CXPB: ",CXPB)
+    print(" * MUTPB: ",MUTPB)
+    print(" * PC k value is: ",k)
+    print(" * Training PC split is: ",splitTrainingPeriod(datetime.strptime(s,'%Y-%m-%d'), datetime.strptime(e,'%Y-%m-%d'), k),"\n")
+    print(" * Training on data from ",s," to ",e,"\n")
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", numpy.mean, axis=0)
@@ -702,9 +704,9 @@ def main(s,e,parallel=True,save=True):
         elif objectivesOption == 4:
             hypers[gen] = hypervolume(pop, [1.0, 50])
         elif objectivesOption == 5:
-            hypers[gen] = hypervolume(pop, [0.0, 0.0])
+            hypers[gen] = hypervolume(pop, [1.0, 0.5])
         elif objectivesOption == 6:
-            hypers[gen] = hypervolume(pop, [0.0, 0.0, 0.0])
+            hypers[gen] = hypervolume(pop, [1.0, 1.0, 0.5])
 
         print(logbook.stream)
 
@@ -805,9 +807,10 @@ def unseen(paretofront, tStart, tEnd):
         pcCount = 0 # The count for the performancy consistency value.
         pcIter = 0 # The index for the performanceConsistencyDatess
         answer = 1 # Initialising answer to prevent zero division error.
-    
+
         dailyReturn = []
         oldP = False
+        numTrDays = len(priceData)
 
         for date, price in priceData.items(): # Need to make within the sim time frame
             # to start the sim from the start date
@@ -879,10 +882,10 @@ def unseen(paretofront, tStart, tEnd):
 
             if oldP != False:
                 if position:
-                    dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/252)
+                    dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/numTrDays)
                 else:
-                    dailyReturn.append(0-riskFreeRate/252) # add risk free rate of 0.05 as a global variable
-            
+                    dailyReturn.append(0-riskFreeRate/numTrDays) # add risk free rate of 0.05 as a global variable
+
             oldP = price
 
         # Final peformance consitency check on final iterval
@@ -902,10 +905,10 @@ def unseen(paretofront, tStart, tEnd):
             bhIncrease = ((bhEndValue-startingBalance)/startingBalance)*100
 
         answer = ((balance - startingBalance)/startingBalance)*100
-   
+
         aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
         stdDailyRateOfReturn = numpy.std(dailyReturn)
-        sharpe = round(numpy.sqrt(252) * aveDailyReturn / stdDailyRateOfReturn,2)
+        sharpe = round(numpy.sqrt(numTrDays) * aveDailyReturn / stdDailyRateOfReturn,2)
 
         if BandH:
             print("Buy and Hold % increase for unseen is ", round(bhIncrease,2),"\n")
@@ -949,4 +952,3 @@ if __name__ == "__main__":
     pareto, stats = main(trainingStart,trainingEnd)
     answer, interval = unseen(pareto, unseenStart, unseenEnd)
     processPareto(answer,interval)
-

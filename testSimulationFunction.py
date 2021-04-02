@@ -173,7 +173,7 @@ def plot_action(data):
 def simulation():
 
     startDate = '2013-01-01' # Start date of the overall trading window.
-    endDate = '2015-09-15' # End date of the overall trading window.
+    endDate = '2015-01-01' # End date of the overall trading window.
     shares = 0 # The number of shares that the trader currently owns.
     position = False # Whether the trader is currently invested in the stock.
     startingBalance = 1000 # The starting amount that the trader will trade with.
@@ -210,6 +210,7 @@ def simulation():
     answer = 1 # Initialising answer to prevent zero division error.
 
     print('Interval: ', interval)
+    numTDays = len(priceData)
 
     for date, price in priceData.items(): # Need to make within the sim time frame
         # to start the sim from the start date
@@ -306,9 +307,9 @@ def simulation():
         oldDate = date
         
         if position:
-            dailyReturn.append((((price-oldP)/oldP)*100)-0.05/252)
+            dailyReturn.append((((price-oldP)/oldP)*100)-0.05/numTDays)
         else:
-            dailyReturn.append(0-0.05/252) # add risk free rate of 0.05 as a global variable
+            dailyReturn.append(0-0.05/numTDays) # add risk free rate of 0.05 as a global variable
         
         oldP = price
 
@@ -339,7 +340,7 @@ def simulation():
 
     aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
     stdDailyRateOfReturn = numpy.std(dailyReturn)
-    sharpe3 = round(numpy.sqrt(252) * aveDailyReturn / stdDailyRateOfReturn,2)
+    sharpe3 = round(numpy.sqrt(numTDays) * aveDailyReturn / stdDailyRateOfReturn,2)
 
     answer = ((balance - startingBalance)/startingBalance)*100
     print("Percentage increase by ", date," is ", round(answer,2))
