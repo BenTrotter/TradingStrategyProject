@@ -59,7 +59,7 @@ unseenk = 6
 riskFreeRate = 0.05
 
 # Evolution parameters
-ngen = 8
+ngen = 2
 mu = 10
 cxpb = 0.4
 mutpb = 0.5
@@ -774,13 +774,17 @@ def main(s,e,parallel=True,save=True):
 
 
 
-def unseen(paretofront, tStart, tEnd):
+def unseen(paretofront, tStart, tEnd, test_K, fileName):
 
     BandH = True
     print("\nTesting on unseen data from ",tStart," to ", tEnd)
     pcDict = {}
+    print("Number on pareto front is ",len(paretofront))
+    count3 = 1
 
     for i in paretofront:
+        print(count3)
+        count3 += 1
 
         rule = toolbox.compile(expr=i)
 
@@ -796,13 +800,13 @@ def unseen(paretofront, tStart, tEnd):
         # Converting date strings to  datetime objects
         startDay = datetime.strptime(startDate,'%Y-%m-%d')
         endDay = datetime.strptime(endDate,'%Y-%m-%d')
-        pcSplit = unseenk # The number of intervals to split the trading window into for PC
+        pcSplit = test_K # The number of intervals to split the trading window into for PC
         # Get the interval in days for PC
         interval = splitTrainingPeriod(startDay, endDay, pcSplit)
         # Get the dates that the PC count needs to be checked and updated.
         performanceConsistencyDates = getPCUpdateDates(startDay, endDay, interval)
         # Gets a dict of date and price as keys and values.
-        priceData = getPriceDataDict(file,startDate,endDate)
+        priceData = getPriceDataDict(fileName,startDate,endDate)
         riskExposure = 0 # The num days that a trader is in the market.
         pcCount = 0 # The count for the performancy consistency value.
         pcIter = 0 # The index for the performanceConsistencyDatess
@@ -925,7 +929,7 @@ def unseen(paretofront, tStart, tEnd):
 
     return pcDict, interval
 
-def processPareto(paretoDict, interval):
+def processPareto(paretoDict, interval, unseen_K):
 
     print("Interval length for unseen PC is: ",interval,"\n")
 
@@ -935,7 +939,7 @@ def processPareto(paretoDict, interval):
     for key,v in sorted_d.items():
         print("Strategy:")
         print(key)
-        print("Achieved a pc score of ",v[0],"/",unseenk, " on unseen data.")
+        print("Achieved a pc score of ",v[0],"/",unseen_K, " on unseen data.")
         print("Training score: ",v[2])
         print("Unseen score: ",v[1]," -> This is an change of ",v[4],"% from the B&H.")
         print("Sharpe ratio: ",v[3],'\n')
@@ -950,5 +954,5 @@ if __name__ == "__main__":
     freeze_support()
     random.seed()
     pareto, stats = main(trainingStart,trainingEnd)
-    answer, interval = unseen(pareto, unseenStart, unseenEnd)
-    processPareto(answer,interval)
+    answer, interval = unseen(pareto, unseenStart, unseenEnd, unseenk, file)
+    processPareto(answer,interval, unseenk)
