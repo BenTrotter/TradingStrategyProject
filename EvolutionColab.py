@@ -762,7 +762,12 @@ def unseen(paretofront, tStart, tEnd):
     print("\nTesting on unseen data from ",tStart," to ", tEnd)
     pcDict = {}
 
+    print("Number on pareto front is ",len(paretofront))
+    count3 = 1
+
     for i in paretofront:
+        print(count3)
+        count3 += 1
 
         rule = toolbox.compile(expr=i)
 
