@@ -59,8 +59,8 @@ unseenk = 1
 riskFreeRate = 0.05
 
 # Evolution parameters
-ngen = 5
-mu = 7
+ngen = 150
+mu = 200
 cxpb = 0.5
 mutpb = 0.4
 # -------------------------------------------------------------------- #
