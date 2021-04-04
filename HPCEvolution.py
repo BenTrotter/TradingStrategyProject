@@ -46,7 +46,7 @@ resolution = '1d'
 # 4 : PC and Risk Exposure
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
-objectivesOption = 3
+objectivesOption = 2
 
 notification = True # True if send a notification when complete
 
