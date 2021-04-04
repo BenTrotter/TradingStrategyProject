@@ -46,21 +46,22 @@ resolution = '1d'
 # 4 : PC and Risk Exposure
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
-objectivesOption = 1
+objectivesOption = 3
 
-notification = False # True if send a notification when complete
+notification = True # True if send a notification when complete
 
-trainingStart = "2020-03-23"
-trainingEnd = "2021-01-01"
-unseenStart = "2021-01-01"
-unseenEnd = "2021-03-23"
-k = 15
-unseenk = 1
+trainingStart = "2013-01-01"
+trainingEnd = "2015-01-01"
+unseenStart = "2015-01-01"
+unseenEnd = "2021-01-01"
+k = 12
+unseenk = 6
 riskFreeRate = 0.05
+scores = []
 
 # Evolution parameters
-ngen = 150
-mu = 200
+ngen = 80
+mu = 100
 cxpb = 0.5
 mutpb = 0.4
 # -------------------------------------------------------------------- #
@@ -767,6 +768,10 @@ def findBH(name,tStart,tEnd):
     return bh
 
 def paraUnseen(i,testK,name,tStart,tEnd,bhIncrease,pcDict):
+
+    if i.fitness.values[0] in scores:
+        return
+    scores.append(i.fitness.values[0])
 
     rule = toolbox.compile(expr=i)
 
