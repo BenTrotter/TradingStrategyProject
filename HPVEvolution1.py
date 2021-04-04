@@ -54,7 +54,7 @@ trainingStart = "2020-03-23"
 trainingEnd = "2021-01-01"
 unseenStart = "2021-01-01"
 unseenEnd = "2021-03-23"
-k = 10
+k = 50
 unseenk = 1
 riskFreeRate = 0.05
 scores = []
@@ -769,9 +769,9 @@ def findBH(name,tStart,tEnd):
 
 def paraUnseen(i,testK,name,tStart,tEnd,bhIncrease,pcDict):
 
-    # if i.fitness.values[0] in scores:
-    #     return
-    # scores.append(i.fitness.values[0])
+    if i.fitness.values[0] in scores:
+        return
+    scores.append(i.fitness.values[0])
 
     rule = toolbox.compile(expr=i)
 
@@ -900,7 +900,7 @@ def paraUnseen(i,testK,name,tStart,tEnd,bhIncrease,pcDict):
         riskExposure = 100
 
     above = round(((round(answer,2)-round(bhIncrease,2))/round(bhIncrease,2))*100,2)
-    print("Training score: ",i.fitness.values[0]," Unseen score: ",round(answer,2),'\n')
+    # print("Training score: ",i.fitness.values[0]," Unseen score: ",round(answer,2),'\n')
     pcDict[str(i)] = [pcCount,round(answer,2),i.fitness.values[0],sharpe,above]
 
 
