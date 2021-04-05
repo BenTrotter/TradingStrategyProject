@@ -46,11 +46,9 @@ resolution = '1d'
 # 4 : PC and Risk Exposure CAUTION: change paraUnseen function as looks at profit
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
+objectivesOption = 3
 
-objectivesOption = 6
-
-
-notification = True # True if send a notification when complete
+notification = False # True if send a notification when complete
 
 trainingStart = "2013-01-01"
 trainingEnd = "2015-01-01"
@@ -700,7 +698,8 @@ def main(s,e,parallel=True,save=True):
 
     if save:
         cp = dict(population=pop, generation=gen, pareto=paretofront,
-            logbook=logbook, all=all, rndstate=random.getstate())
+            logbook=logbook, all=all, rndstate=random.getstate(), log=logbook,
+            k=k,mu=MU,cxpb=CXPB,mutpb=MUTPB)
 
         with open("SavedOutput.pkl", "wb") as cp_file:
             pickle.dump(cp, cp_file)
@@ -948,9 +947,9 @@ def processPareto(paretoDict, interval):
     #
 
 if __name__ == "__main__":
-    load(ticker,trainingStart,unseenEnd,resolution)
+    load(ticker,trainingStart,trainingEnd,resolution)
     freeze_support()
     random.seed()
     pareto, stats = main(trainingStart,trainingEnd)
-    answer, interval = unseen(pareto, unseenStart, unseenEnd, unseenk,file)
-    processPareto(answer,interval)
+    # answer, interval = unseen(pareto, unseenStart, unseenEnd, unseenk,file)
+    # processPareto(answer,interval)
