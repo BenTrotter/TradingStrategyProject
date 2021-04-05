@@ -47,7 +47,7 @@ resolution = '1d'
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
 
-objectivesOption = 5
+objectivesOption = 6
 
 
 notification = True # True if send a notification when complete
