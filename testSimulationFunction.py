@@ -123,7 +123,7 @@ def getPriceDataDict(csv,startDate,endDate):
     return combined
 
 
-def plot_action(data):
+def plot_action(data,whichSplits):
 
     buyPlt = []
     sellPlt = []
@@ -155,6 +155,28 @@ def plot_action(data):
     plt.plot(buyNp, pricesNp,'^', markersize=5, color='g')
     plt.plot(sellNp, pricesNp,'v', markersize=5, color='r')
 
+    locs = ax.get_xticks()
+    print(len(locs))
+    split = len(locs)/len(whichSplits)
+
+
+    ax.axvspan(8, 14, alpha=0.5, color='green')
+    count = 1
+    a = 0
+    b = split
+    for i in whichSplits:
+        if i == True:
+            ax.axvspan(a, b, alpha=0.5, color='green')
+        else:
+            ax.axvspan(a, b, alpha=0.5, color='red')
+        count += 1
+        a+=split
+        b+= split
+
+    # plt.fill_between(x, y1, y2,
+    #              facecolor="orange", # The fill color
+    #              color='blue',       # The outline color
+    #              alpha=0.2)
     every_nth = 12
     for n, label in enumerate(ax.xaxis.get_ticklabels()):
         if n % every_nth != 0:
@@ -172,8 +194,8 @@ def plot_action(data):
 
 def simulation():
 
-    startDate = '2013-01-01' # Start date of the overall trading window.
-    endDate = '2015-01-01' # End date of the overall trading window.
+    startDate = '2015-01-01' # Start date of the overall trading window.
+    endDate = '2021-01-01' # End date of the overall trading window.
     shares = 0 # The number of shares that the trader currently owns.
     position = False # Whether the trader is currently invested in the stock.
     startingBalance = 1000 # The starting amount that the trader will trade with.
@@ -184,7 +206,7 @@ def simulation():
     # Converting date strings to  datetime objects
     startDay = datetime.strptime(startDate,'%Y-%m-%d')
     endDay = datetime.strptime(endDate,'%Y-%m-%d')
-    pcSplit = 12 # The number of intervals to split the trading window into for PC
+    pcSplit = 72 # The number of intervals to split the trading window into for PC
     # Get the interval in days for PC
     interval = splitTrainingPeriod(startDay, endDay, pcSplit)
     # Get the dates that the PC count needs to be checked and updated.
@@ -193,6 +215,7 @@ def simulation():
     performanceConsistencyDates = getPCUpdateDates(startDay, endDay, interval)
     # Gets a dict of date and price as keys and values.
     priceData = getPriceDataDict(file,startDay,endDay)
+    whichSplits = []
 
     riskFreeRate = 0.05
     rateOfReturn = []
@@ -236,6 +259,9 @@ def simulation():
             percentIncBalanceStrategy =  ((balance-oldBalance)/oldBalance)*100
             if percentIncPriceTest < percentIncBalanceStrategy:
                 pcCount += 1
+                whichSplits.append(True)
+            else:
+                whichSplits.append(False)
             # print("\nPC Update: ",date)
             # print("Increase in price: ",round(percentIncPriceTest,2))
             # print("Increase in balance: ",round(percentIncBalanceStrategy,2),"\n")
@@ -244,7 +270,7 @@ def simulation():
             pcIter+=1
 
         #action = operator.or_(operator.lt(ema(date, 12), ema(date, 26)), operator.or_(operator.gt(0, so(date, 7)), operator.gt(ma(date, 200), ma(date, 10))))
-        action = operator.gt(ema(date, 12), ema(date, 26))
+        action = operator.or_(operator.not_(operator.gt(ma(date,5),ma(date,10))), operator.gt(0,macd(date,26,12,9)))
 
         if action and position == False:
             buy = True
@@ -305,12 +331,15 @@ def simulation():
             break
 
         oldDate = date
-        
+
         if position:
-            dailyReturn.append((((price-oldP)/oldP)*100)-0.05/numTDays)
+            try:
+                dailyReturn.append((((price-oldP)/oldP)*100)-0.05/numTDays)
+            except UnboundLocalError:
+                dailyReturn.append(0)
         else:
             dailyReturn.append(0-0.05/numTDays) # add risk free rate of 0.05 as a global variable
-        
+
         oldP = price
 
 
@@ -320,6 +349,9 @@ def simulation():
         percentIncBalanceStrategy =  ((balance-oldBalance)/oldBalance)*100
         if percentIncPriceTest < percentIncBalanceStrategy:
             pcCount += 1
+            whichSplits.append(True)
+        else:
+            whichSplits.append(False)
         pcIter+=1
 
     # print("\nPC Update: ",date)
@@ -330,7 +362,7 @@ def simulation():
     # Check to ensure every interval as been included in the PC count
     if(pcIter != pcSplit):
         print("\nERROR: Not all pc intervals have been calculated.\n")
-    
+
 
     aveReturn = sum(rateOfReturn) / len(rateOfReturn)
     stdRateOfReturn = numpy.std(rateOfReturn)
@@ -353,9 +385,12 @@ def simulation():
         numTrades = 100
         riskExposure = 100
 
-    return data
+    for d in whichSplits:
+        print("Split: ",d)
+
+    return data, whichSplits
 
 
 if __name__ == "__main__":
-    prDa = simulation()
-    plot_action(prDa)
+    prDa, splits = simulation()
+    plot_action(prDa,splits)
