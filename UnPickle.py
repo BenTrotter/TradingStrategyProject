@@ -44,9 +44,12 @@ if __name__ == "__main__":
     count = 0
     for k, v in results.items():
         if count == 2:
-            # for i in v:
-            #     print(i)
             answer, interval1 = unseen(v, unseenStart, unseenEnd, interval, file)
             processPareto(answer,interval1)
 
         count += 1
+
+
+
+
+        
