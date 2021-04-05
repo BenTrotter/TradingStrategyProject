@@ -48,7 +48,7 @@ resolution = '1d'
 # 6 : Profit, PC and Sharpe Ratio
 objectivesOption = 4
 
-notification = False # True if send a notification when complete
+notification = True # True if send a notification when complete
 
 trainingStart = "2013-01-01"
 trainingEnd = "2015-01-01"
