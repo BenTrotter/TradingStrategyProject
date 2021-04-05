@@ -43,10 +43,12 @@ resolution = '1d'
 # 1 : Profit and PC
 # 2 : Profit, PC and Risk Exposure
 # 3 : Profit, PC, Risk Exposure and number of trades
-# 4 : PC and Risk Exposure
+# 4 : PC and Risk Exposure CAUTION: change paraUnseen function as looks at profit
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
-objectivesOption = 2
+
+objectivesOption = 5
+
 
 notification = True # True if send a notification when complete
 
@@ -920,6 +922,8 @@ def unseen(paretofront, tStart, tEnd,test_K, fileName):
 
     for i in paretofront:
         paraUnseen(i,test_K,fileName,tStart,tEnd,bh,pcDict)
+        if len(scores) == 20:
+            break
 
     return pcDict, interval
 
