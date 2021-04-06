@@ -46,17 +46,12 @@ resolution = '1d'
 # 4 : PC and Risk Exposure
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
-<<<<<<< HEAD
 # 7 : Profit and Risk Exposure
 # 8 : Profit and no. trades
 # 9 : Profit, Risk Exposure and no. trades
 # 10: Profit, Sharpe ratio, Risk Exposure and no.trades
 # 11: PC, Sharpe ratio, Risk Exposure and no. trades
 objectivesOption = 7
-=======
-
-objectivesOption = 1
->>>>>>> 6792de87500400b64e25e036cb12079a889cb086
 
 notification = True # True if send a notification when complete
 
