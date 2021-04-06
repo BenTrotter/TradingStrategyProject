@@ -46,6 +46,7 @@ resolution = '1d'
 # 4 : PC and Risk Exposure CAUTION: change paraUnseen function as looks at profit
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
+
 objectivesOption = 1
 
 notification = True # True if send a notification when complete
