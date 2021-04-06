@@ -46,22 +46,23 @@ resolution = '1d'
 # 4 : PC and Risk Exposure CAUTION: change paraUnseen function as looks at profit
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
-objectivesOption = 4
+
+objectivesOption = 1
 
 notification = True # True if send a notification when complete
 
-trainingStart = "2013-01-01"
-trainingEnd = "2015-01-01"
-unseenStart = "2015-01-01"
-unseenEnd = "2021-01-01"
-k = 12
-unseenk = 6
+trainingStart = "2015-01-01"
+trainingEnd = "2016-01-01"
+unseenStart = "2016-01-01"
+unseenEnd = "2017-01-01"
+k = 36
+unseenk = 36
 riskFreeRate = 0.05
 scores = []
 
 # Evolution parameters
-ngen = 80
-mu = 100
+ngen = 100
+mu = 150
 cxpb = 0.5
 mutpb = 0.4
 # -------------------------------------------------------------------- #
@@ -768,7 +769,10 @@ def findBH(name,tStart,tEnd):
 
     return bh
 
-def paraUnseen(i,testK,name,tStart,tEnd,bhIncrease,pcDict):
+# buyhold = findBH(file,unseenStart,unseenEnd)
+# pcDict = {}
+#testK,name,tStart,tEnd,bhIncrease,pcDict
+def paraUnseen(i):
 
     if i.fitness.values[0] in scores:
         return
@@ -776,8 +780,8 @@ def paraUnseen(i,testK,name,tStart,tEnd,bhIncrease,pcDict):
 
     rule = toolbox.compile(expr=i)
 
-    startDate = tStart # Start date of the overall trading window.
-    endDate = tEnd # End date of the overall trading window.
+    startDate = unseenStart # Start date of the overall trading window.
+    endDate = unseenEnd # End date of the overall trading window.
     shares = 0 # The number of shares that the trader currently owns.
     position = False # Whether the trader is currently invested in the stock.
     startingBalance = 1000 # The starting amount that the trader will trade with.
@@ -788,13 +792,13 @@ def paraUnseen(i,testK,name,tStart,tEnd,bhIncrease,pcDict):
     # Converting date strings to  datetime objects
     startDay = datetime.strptime(startDate,'%Y-%m-%d')
     endDay = datetime.strptime(endDate,'%Y-%m-%d')
-    pcSplit = testK # The number of intervals to split the trading window into for PC
+    pcSplit = unseenk# The number of intervals to split the trading window into for PC
     # Get the interval in days for PC
     interval = splitTrainingPeriod(startDay, endDay, pcSplit)
     # Get the dates that the PC count needs to be checked and updated.
     performanceConsistencyDates = getPCUpdateDates(startDay, endDay, interval)
     # Gets a dict of date and price as keys and values.
-    priceData = getPriceDataDict(name,startDate,endDate)
+    priceData = getPriceDataDict(file,startDate,endDate)
     riskExposure = 0 # The num days that a trader is in the market.
     pcCount = 0 # The count for the performancy consistency value.
     pcIter = 0 # The index for the performanceConsistencyDatess
@@ -900,10 +904,10 @@ def paraUnseen(i,testK,name,tStart,tEnd,bhIncrease,pcDict):
         numTrades = 100
         riskExposure = 100
 
-    above = round(((round(answer,2)-round(bhIncrease,2))/round(bhIncrease,2))*100,2)
-    print("Training score: ",i.fitness.values[0]," Unseen score: ",round(answer,2),'\n')
-    pcDict[str(i)] = [pcCount,round(answer,2),i.fitness.values[0],sharpe,above]
-
+    above = round(((round(answer,2)-round(buyhold,2))/round(buyhold,2))*100,2)
+    # print("Training score: ",i.fitness.values[0]," Unseen score: ",round(answer,2),'\n')
+    # pcDict[str(i)] = [pcCount,round(answer,2),i.fitness.values[0],sharpe,above]
+    return [str(i),pcCount,round(answer,2),i.fitness.values[0],sharpe,above]
 
 def unseen(paretofront, tStart, tEnd,test_K, fileName):
 
@@ -918,11 +922,17 @@ def unseen(paretofront, tStart, tEnd,test_K, fileName):
     interval = splitTrainingPeriod(startDay, endDay, pcSplit)
 
     print("Number on pareto front is ",len(paretofront))
+    print("Using ",multiprocessing.cpu_count()," processors. ")
+    with Pool() as p:
+        mapped = p.map(paraUnseen, paretofront)
 
-    for i in paretofront:
-        paraUnseen(i,test_K,fileName,tStart,tEnd,bh,pcDict)
-        if len(scores) == 20:
-            break
+    for i in mapped:
+        if i is not None:
+            pcDict[i[0]] = i[1:]
+
+
+    # for i in paretofront:
+    #     paraUnseen(i,test_K,fileName,tStart,tEnd,bh,pcDict)
 
     return pcDict, interval
 
