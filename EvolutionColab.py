@@ -50,18 +50,18 @@ objectivesOption = 2
 notification = False # True if send a notification when complete
 
 trainingStart = "2013-01-01"
-trainingEnd = "2015-01-01"
-unseenStart = "2015-01-01"
-unseenEnd = "2021-01-01"
+trainingEnd = "2014-01-01"
+unseenStart = "2014-01-01"
+unseenEnd = "2015-01-01"
 k = 12
 unseenk = 6
 riskFreeRate = 0.05
 
 # Evolution parameters
-ngen = 80
-mu = 100
-cxpb = 0.4
-mutpb = 0.5
+ngen = 2
+mu = 10
+cxpb = 0.5
+mutpb = 0.4
 # -------------------------------------------------------------------- #
 
 class pd_float(object):

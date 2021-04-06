@@ -43,11 +43,20 @@ resolution = '1d'
 # 1 : Profit and PC
 # 2 : Profit, PC and Risk Exposure
 # 3 : Profit, PC, Risk Exposure and number of trades
-# 4 : PC and Risk Exposure CAUTION: change paraUnseen function as looks at profit
+# 4 : PC and Risk Exposure
 # 5 : Profit and Sharpe Ratio
 # 6 : Profit, PC and Sharpe Ratio
+<<<<<<< HEAD
+# 7 : Profit and Risk Exposure
+# 8 : Profit and no. trades
+# 9 : Profit, Risk Exposure and no. trades
+# 10: Profit, Sharpe ratio, Risk Exposure and no.trades
+# 11: PC, Sharpe ratio, Risk Exposure and no. trades
+objectivesOption = 7
+=======
 
 objectivesOption = 1
+>>>>>>> 6792de87500400b64e25e036cb12079a889cb086
 
 notification = True # True if send a notification when complete
 
@@ -417,6 +426,16 @@ def simulation(individual):
         return round(answer,2), sharpeRatio,
     elif objectivesOption == 6:
         return round(answer,2), pcCount, sharpeRatio,
+    elif objectivesOption == 7:
+        return round(answer,2), riskExposure,
+    elif objectivesOption == 8:
+        return round(answer,2), numTrades,
+    elif objectivesOption == 9:
+        return round(answer,2), riskExposure, numTrades,
+    elif objectivesOption == 10:
+        return round(answer,2), sharpeRatio, riskExposure, numTrades,
+    elif objectivesOption == 11:
+        return pcCount, sharpeRatio,riskExposure, numTrades,
 
 if objectivesOption == 1:
     creator.create("Fitness", base.Fitness, weights=(1.0,1.0))
@@ -430,6 +449,16 @@ elif objectivesOption == 5:
     creator.create("Fitness", base.Fitness, weights=(1.0,1.0))
 elif objectivesOption == 6:
     creator.create("Fitness", base.Fitness, weights=(1.0,1.0,1.0))
+elif objectivesOption == 7:
+    creator.create("Fitness", base.Fitness, weights=(1.0,-1.0))
+elif objectivesOption == 8:
+    creator.create("Fitness", base.Fitness, weights=(1.0,-1.0))
+elif objectivesOption == 9:
+    creator.create("Fitness", base.Fitness, weights=(1.0,-1.0,-1.0))
+elif objectivesOption == 10:
+    creator.create("Fitness", base.Fitness, weights=(1.0,1.0,-1.0,-1.0))
+elif objectivesOption == 11:
+    creator.create("Fitness", base.Fitness, weights=(1.0,1.0,-1.0,-1.0))
 
 creator.create("Individual", gp.PrimitiveTree, fitness=creator.Fitness)
 
@@ -483,6 +512,12 @@ def plot_pop_pareto_front(pop,paretofront, option, title=""):
     if option == 5:
         plt.xlabel('% increase in profit')
         plt.ylabel('Sharpe Ratio')
+    if option == 7:
+        plt.xlabel('% increase in profit')
+        plt.ylabel('Risk Exposure')
+    if option == 8:
+        plt.xlabel('% increase in profit')
+        plt.ylabel('Number of trades')
     plt.legend()
     plt.savefig('map.png')
 
@@ -509,6 +544,12 @@ def threeScatterPlot(allValues,option):
         df = pd.DataFrame(allValues, columns=['Profit','PC','Risk Exposure','No. Trades'])
     elif option == 6:
         df = pd.DataFrame(allValues, columns=['Profit','PC','Sharpe Ratio'])
+    elif option == 9:
+        df = pd.DataFrame(allValues, columns=['Profit','Risk Exposure','No. Trades'])
+    elif option == 10:
+        df = pd.DataFrame(allValues, columns=['Profit','Sharpe Ratio','Risk Exposure','No. Trades'])
+    elif option == 11:
+        df = pd.DataFrame(allValues, columns=['PC','Sharpe Ratio','Risk Exposure','No. Trades'])
 
     scatter = pd.plotting.scatter_matrix(df, alpha=0.2)
     plt.savefig(r"scatter.png")
@@ -553,6 +594,10 @@ def threeDimensionalPlot(inputPoints, dominates, option):
         ax.set_xlabel('% increase in profit', rotation=150)
         ax.set_ylabel('Performance consitency')
         ax.set_zlabel('Sharpe Ratio', rotation=60)
+    elif option == 9:
+        ax.set_xlabel('% increase in profit', rotation=150)
+        ax.set_ylabel('Risk Exposure')
+        ax.set_zlabel('No. Trades', rotation=60)
     dp = numpy.array(list(dominatedPoints))
     pp = numpy.array(list(paretoPoints))
     print(pp.shape,dp.shape)
@@ -591,6 +636,16 @@ def main(s,e,parallel=True,save=True):
         print("Using two objectives: Profit and Sharpe Ratio")
     elif objectivesOption == 6:
         print("Using three objectives: Profit, PC and Sharpe Ratio")
+    elif objectivesOption == 7:
+        print("Using two objectives: Profit and Risk Exposure")
+    elif objectivesOption == 8:
+        print("Using two objectives: Profit and Number of trades")
+    elif objectivesOption == 9:
+        print("Using three objectives: Profit, Risk Exposure and Number of trades")
+    elif objectivesOption == 10:
+        print("Using four objectives: Profit, Sharpe Ratio, Risk Exposure and Number of trades")
+    elif objectivesOption == 11:
+        print("Using four objectives: PC, Sharpe Ratio, Risk Exposure and Number of Trades")
     print("Retrieving data from ", file)
     print("Number of generations: ",NGEN)
     print("Population size: ",MU)
@@ -694,6 +749,16 @@ def main(s,e,parallel=True,save=True):
             hypers[gen] = hypervolume(pop, [1.0, 0.5])
         elif objectivesOption == 6:
             hypers[gen] = hypervolume(pop, [1.0, 1.0, 0.5])
+        elif objectivesOption == 7:
+            hypers[gen] = hypervolume(pop, [1.0, 200])
+        elif objectivesOption == 8:
+            hypers[gen] = hypervolume(pop, [1.0, 200])
+        elif objectivesOption == 9:
+            hypers[gen] = hypervolume(pop, [1.0, 200, 200])
+        elif objectivesOption == 10:
+            hypers[gen] = hypervolume(pop, [1.0, 0.5, 200, 200])
+        elif objectivesOption == 11:
+            hypers[gen] = hypervolume(pop, [1.0, 0.5, 200, 200])
 
         print(logbook.stream)
 
@@ -749,6 +814,26 @@ def main(s,e,parallel=True,save=True):
             allValues.append(i.fitness.values)
         threeScatterPlot(allValues,objectivesOption)
         threeDimensionalPlot(allValues,dominates,objectivesOption)
+    elif objectivesOption == 7:
+        plot_pop_pareto_front(all, paretofront, objectivesOption, "Fitness of all individuals")
+    elif objectivesOption == 8:
+        plot_pop_pareto_front(all, paretofront, objectivesOption, "Fitness of all individuals")
+    elif objectivesOption == 9:
+        allValues = []
+        for i in all:
+            allValues.append(i.fitness.values)
+        threeScatterPlot(allValues,objectivesOption)
+        threeDimensionalPlot(allValues,dominates,objectivesOption)
+    elif objectivesOption == 10:
+        allValues = []
+        for i in all:
+            allValues.append(i.fitness.values)
+        threeScatterPlot(allValues,objectivesOption)
+    elif objectivesOption == 11:
+        allValues = []
+        for i in all:
+            allValues.append(i.fitness.values)
+        threeScatterPlot(allValues,objectivesOption)
 
     plot_hypervolume(hypers)
 
