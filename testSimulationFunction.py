@@ -177,7 +177,7 @@ def plot_action(data,whichSplits):
     #              facecolor="orange", # The fill color
     #              color='blue',       # The outline color
     #              alpha=0.2)
-    every_nth = 12
+    every_nth = 365
     for n, label in enumerate(ax.xaxis.get_ticklabels()):
         if n % every_nth != 0:
             label.set_visible(False)
@@ -194,8 +194,8 @@ def plot_action(data,whichSplits):
 
 def simulation():
 
-    startDate = '2015-01-01' # Start date of the overall trading window.
-    endDate = '2021-01-01' # End date of the overall trading window.
+    startDate = '2016-01-01' # Start date of the overall trading window.
+    endDate = '2019-01-01' # End date of the overall trading window.
     shares = 0 # The number of shares that the trader currently owns.
     position = False # Whether the trader is currently invested in the stock.
     startingBalance = 1000 # The starting amount that the trader will trade with.
@@ -206,7 +206,7 @@ def simulation():
     # Converting date strings to  datetime objects
     startDay = datetime.strptime(startDate,'%Y-%m-%d')
     endDay = datetime.strptime(endDate,'%Y-%m-%d')
-    pcSplit = 72 # The number of intervals to split the trading window into for PC
+    pcSplit = 6 # The number of intervals to split the trading window into for PC
     # Get the interval in days for PC
     interval = splitTrainingPeriod(startDay, endDay, pcSplit)
     # Get the dates that the PC count needs to be checked and updated.
@@ -270,8 +270,8 @@ def simulation():
             pcIter+=1
 
         #action = operator.or_(operator.lt(ema(date, 12), ema(date, 26)), operator.or_(operator.gt(0, so(date, 7)), operator.gt(ma(date, 200), ma(date, 10))))
-        action = operator.or_(operator.not_(operator.gt(ma(date,5),ma(date,10))), operator.gt(0,macd(date,26,12,9)))
-
+        # action = operator.or_(operator.lt(ema(date,26),ma(date,20)), operator.not_(operator.lt(ma(date,20),ema(date,5))))
+        action =  operator.not_(operator.gt(ma(date, 50), ema(date, 100)))
         if action and position == False:
             buy = True
             sell = False
@@ -334,11 +334,13 @@ def simulation():
 
         if position:
             try:
-                dailyReturn.append((((price-oldP)/oldP)*100)-0.05/numTDays)
+                dailyReturn.append((((price-oldP)/oldP)*100))
+                # dailyReturn.append((((price-oldP)/oldP)*100)-0.05/numTDays)
             except UnboundLocalError:
                 dailyReturn.append(0)
         else:
-            dailyReturn.append(0-0.05/numTDays) # add risk free rate of 0.05 as a global variable
+            # dailyReturn.append(0-0.05/numTDays) # add risk free rate of 0.05 as a global variable
+            dailyReturn.append(0)
 
         oldP = price
 
@@ -374,12 +376,15 @@ def simulation():
     stdDailyRateOfReturn = numpy.std(dailyReturn)
     sharpe3 = round(numpy.sqrt(numTDays) * aveDailyReturn / stdDailyRateOfReturn,2)
 
+    sharpe4 = round((aveDailyReturn-(riskFreeRate/numTDays))/stdRateOfReturn,2)
+    
+
     answer = ((balance - startingBalance)/startingBalance)*100
     print("Percentage increase by ", date," is ", round(answer,2))
     print("Number of trades: ",numTrades)
     print("Risk exposure: ",riskExposure)
     print("PC count: ",pcCount)
-    print("Sharpe Ratio: ",sharpe1,' or ', sharpe,' or ',sharpe2,' or ',sharpe3)
+    print("Sharpe Ratio: ",sharpe1,' or ', sharpe,' or ',sharpe2,' or ',sharpe3,' or ',sharpe4)
 
     if numTrades == 0:
         numTrades = 100
