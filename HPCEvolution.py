@@ -57,23 +57,23 @@ resolution = '1d'
 
 objectivesOption = 1
 
-notification = False # True if send a notification when complete
+notification = True # True if send a notification when complete
 
-trainingStart = "2015-01-01"
-trainingEnd = "2016-01-01"
-unseenStart = "2016-01-01"
-unseenEnd = "2017-01-01"
-validateStart = "2017-01-01"
-validateEnd = "2018-01-01"
+trainingStart = "2018-01-01"
+trainingEnd = "2019-01-01"
+unseenStart = "2019-01-01"
+unseenEnd = "2020-01-01"
+validateStart = "2020-01-01"
+validateEnd = "2021-01-01"
 
 k = 12
-unseenk = 6
+unseenk = 12
 riskFreeRate = 0.05
 scores = []
 
 # Evolution parameters
-ngen = 4
-mu = 40
+ngen = 100
+mu = 150
 cxpb = 0.4
 mutpb = 0.5
 # -------------------------------------------------------------------- #
