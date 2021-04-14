@@ -30,8 +30,8 @@ from scoop import futures
 
 # ----------------- Parameters -------------------- #
 unseenStart = "2015-01-01"
-unseenEnd = "2021-01-01"
-interval = 6
+unseenEnd = "2020-01-01"
+interval = 5
 file = "MSFT.csv"
 # ------------------------------------------------- #
 

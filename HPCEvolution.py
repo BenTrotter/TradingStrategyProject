@@ -5,8 +5,8 @@ import itertools
 from preload import load
 import os
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+from graph import *
+from indicators import *
 
 import numpy
 
@@ -32,10 +32,13 @@ from scoop import futures
 
 import multiprocessing
 from multiprocessing import freeze_support, Pool
+from itertools import repeat
+
+import shutil, os
 
 
 # ------------------------- Global varibales ------------------------- #
-file = "MSFT.csv"
+file = "MSFT.csv" # needs changing in indicators.py
 ticker = "MSFT"
 resolution = '1d'
 
@@ -51,24 +54,28 @@ resolution = '1d'
 # 9 : Profit, Risk Exposure and no. trades
 # 10: Profit, Sharpe ratio, Risk Exposure and no.trades
 # 11: PC, Sharpe ratio, Risk Exposure and no. trades
-objectivesOption = 7
 
-notification = True # True if send a notification when complete
+objectivesOption = 1
+
+notification = False # True if send a notification when complete
 
 trainingStart = "2015-01-01"
 trainingEnd = "2016-01-01"
 unseenStart = "2016-01-01"
 unseenEnd = "2017-01-01"
-k = 36
-unseenk = 36
+validateStart = "2017-01-01"
+validateEnd = "2018-01-01"
+
+k = 12
+unseenk = 6
 riskFreeRate = 0.05
 scores = []
 
 # Evolution parameters
-ngen = 100
-mu = 150
-cxpb = 0.5
-mutpb = 0.4
+ngen = 4
+mu = 40
+cxpb = 0.4
+mutpb = 0.5
 # -------------------------------------------------------------------- #
 
 class pd_float(object):
@@ -117,61 +124,6 @@ class so_ans(object):
 class so_bounds(object):
     pass
 
-def ma(date,window):
-
-    panda = pd.read_csv(file)
-    mas = panda["SMA "+str(window)+".0"]
-    dates = panda["Date"]
-    dict1 = dict(zip(dates,mas))
-    ma = dict1[date]
-    return ma
-
-def rsi(date,window):
-
-    panda = pd.read_csv(file)
-    rsi = panda["RSI "+str(window)+".0"]
-    dates = panda["Date"]
-    dict1 = dict(zip(dates,rsi))
-    RSI = dict1[date]
-    return RSI
-
-def ema(date,window):
-
-    panda = pd.read_csv(file)
-    emas = panda["EMA "+str(window)+".0"]
-    dates = panda["Date"]
-    dict1 = dict(zip(dates,emas))
-    ema = dict1[date]
-    return ema
-
-def macd(date,s,f,sig):
-
-    panda = pd.read_csv(file)
-    macd = panda["MACD "+str(s)+str(f)]
-    sig = panda["MACD Signal "+str(sig)+str(s)+str(f)]
-    dates = panda["Date"]
-    dict1 = dict(zip(dates,macd))
-    dict2 = dict(zip(dates,sig))
-    macd1 = dict1[date]
-    sig1 = dict2[date]
-    ans = macd1 - sig1
-    return ans
-
-def so(date,window):
-
-    panda = pd.read_csv(file)
-    SO = panda["SO "+str(window)]
-    sig = panda["%D 3-"+str(window)] # Maybe make this a variable that is explored by the algorithm
-    dates = panda["Date"]
-    dict1 = dict(zip(dates,SO))
-    dict2 = dict(zip(dates,sig))
-    so = dict1[date]
-    sig1 = dict2[date]
-    ans = so - sig1 # Check this is the right way round. It may not matter.
-    return ans
-
-def if_then_else(input, output1, output2):
-    return output1 if input else output2
 
 # I have forced rsi rule. Maybe allow for more loose options to be explored. e.g.
 # not limiting the rsi to be within and if then else rule.
@@ -372,9 +324,11 @@ def simulation(individual):
 
         if oldP != False:
             if position:
-                dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/numTDays) # 252 annualises the ratio
-            else:
-                dailyReturn.append(0-riskFreeRate/numTDays)
+                # dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/numTDays) # 252 annualises the ratio
+                dailyReturn.append(((price-oldP)/oldP)*100)
+            # else:
+            #     # dailyReturn.append(0-riskFreeRate/numTDays)
+            #     dailyReturn.append(0)
 
         oldP = price
 
@@ -394,16 +348,17 @@ def simulation(individual):
     answer = ((balance - startingBalance)/startingBalance)*100
 
     # Sharpe Ratio
-    aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
-    stdDailyRateOfReturn = numpy.std(dailyReturn)
-    sharpeRatio = round(numpy.sqrt(numTDays) * aveDailyReturn / stdDailyRateOfReturn,2)
+    if len(dailyReturn) == 0:
+        sharpeRatio = 0
+    else:
+        aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
+        stdDailyRateOfReturn = numpy.std(dailyReturn)
+        # sharpeRatio = round(numpy.sqrt(numTDays) * aveDailyReturn / stdDailyRateOfReturn,2)
+        if stdDailyRateOfReturn == 0:
+            sharpeRatio = 0
+        else:
+            sharpeRatio = round((aveDailyReturn-(riskFreeRate/numTDays))/stdDailyRateOfReturn,2)
 
-    # Buy and hold calculation.
-    # bhEndValue = bhShares * price
-    # bhIncrease = ((bhEndValue-startingBalance)/startingBalance)*100
-    # print("Buy and Hold % increase for seen is ", round(bhIncrease,2),"\n")
-
-    # Sharpe Ratio
 
     if numTrades == 0:
         numTrades = 100
@@ -475,144 +430,11 @@ toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
 
 
 
-
-def plot_pop_pareto_front(pop,paretofront, option, title=""):
-    x=[]
-    y=[]
-    for p in paretofront:
-        fitness = p.fitness.values
-        x.append(fitness[0])
-        y.append(fitness[1])
-    xp=[]
-    yp=[]
-    for p in pop:
-        fitness = p.fitness.values
-        xp.append(fitness[0])
-        yp.append(fitness[1])
-    fig,ax=plt.subplots(figsize=(5,5))
-    ax.plot(xp,yp,".", label="Population")
-    ax.plot(x,y,".", label="Pareto Front")
-    fitpareto=list(zip(x,y))
-    fitpop=list(zip(xp,yp))
-    print("\nPareto Front: "+str(fitpareto),'\n')
-    # print("Population: "+str(fitpop))
-
-    ax.set_title(title)
-    if option == 1:
-        plt.xlabel('% increase in profit')
-        plt.ylabel('Performance consitency')
-    if option == 4:
-        plt.xlabel('Performance consistency')
-        plt.ylabel('Risk Exposure')
-    if option == 5:
-        plt.xlabel('% increase in profit')
-        plt.ylabel('Sharpe Ratio')
-    if option == 7:
-        plt.xlabel('% increase in profit')
-        plt.ylabel('Risk Exposure')
-    if option == 8:
-        plt.xlabel('% increase in profit')
-        plt.ylabel('Number of trades')
-    plt.legend()
-    plt.savefig('map.png')
-
-def plot_hypervolume(hypers, title="Hypervolume"):
-    x=[]
-    y=[]
-    for gen,hv in hypers.items():
-        x.append(gen)
-        y.append(hv)
-
-    fig,ax=plt.subplots(figsize=(5,5))
-    fitpareto=list(zip(x,y))
-
-    ax.set_title(title)
-    plt.plot(x, y, color='red', marker='o')
-    plt.xlabel('Generation Number')
-    plt.ylabel('Hypervolume')
-    plt.savefig('hv.png')
-
-def threeScatterPlot(allValues,option):
-    if option == 2:
-        df = pd.DataFrame(allValues, columns=['Profit','PC','Risk Exposure'])
-    elif option == 3:
-        df = pd.DataFrame(allValues, columns=['Profit','PC','Risk Exposure','No. Trades'])
-    elif option == 6:
-        df = pd.DataFrame(allValues, columns=['Profit','PC','Sharpe Ratio'])
-    elif option == 9:
-        df = pd.DataFrame(allValues, columns=['Profit','Risk Exposure','No. Trades'])
-    elif option == 10:
-        df = pd.DataFrame(allValues, columns=['Profit','Sharpe Ratio','Risk Exposure','No. Trades'])
-    elif option == 11:
-        df = pd.DataFrame(allValues, columns=['PC','Sharpe Ratio','Risk Exposure','No. Trades'])
-
-    scatter = pd.plotting.scatter_matrix(df, alpha=0.2)
-    plt.savefig(r"scatter.png")
-
-
-def threeDimensionalPlot(inputPoints, dominates, option):
-    paretoPoints = set()
-    candidateRowNr = 0
-    dominatedPoints = set()
-    while True:
-        candidateRow = inputPoints[candidateRowNr]
-        inputPoints.remove(candidateRow)
-        rowNr = 0
-        nonDominated = True
-        while len(inputPoints) != 0 and rowNr < len(inputPoints):
-            row = inputPoints[rowNr]
-            if dominates(candidateRow, row):
-                # If it is worse on all features remove the row from the array
-                inputPoints.remove(row)
-                dominatedPoints.add(tuple(row))
-            elif dominates(row, candidateRow):
-                nonDominated = False
-                dominatedPoints.add(tuple(candidateRow))
-                rowNr += 1
-            else:
-                rowNr += 1
-
-        if nonDominated:
-            # add the non-dominated point to the Pareto frontier
-            paretoPoints.add(tuple(candidateRow))
-
-        if len(inputPoints) == 0:
-            break
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    if option == 2:
-        ax.set_xlabel('% increase in profit', rotation=150)
-        ax.set_ylabel('Performance consitency')
-        ax.set_zlabel('Risk Exposure', rotation=60)
-    elif option == 6:
-        ax.set_xlabel('% increase in profit', rotation=150)
-        ax.set_ylabel('Performance consitency')
-        ax.set_zlabel('Sharpe Ratio', rotation=60)
-    elif option == 9:
-        ax.set_xlabel('% increase in profit', rotation=150)
-        ax.set_ylabel('Risk Exposure')
-        ax.set_zlabel('No. Trades', rotation=60)
-    dp = numpy.array(list(dominatedPoints))
-    pp = numpy.array(list(paretoPoints))
-    print(pp.shape,dp.shape)
-    ax.scatter(dp[:,0],dp[:,1],dp[:,2])
-    ax.scatter(pp[:,0],pp[:,1],pp[:,2],color='red')
-
-    import matplotlib.tri as mtri
-    triang = mtri.Triangulation(pp[:,0],pp[:,1])
-    ax.plot_trisurf(triang,pp[:,2],color='red')
-    plt.savefig('3d.png')
-
-    return paretoPoints, dominatedPoints
-
-def dominates(row, candidateRow):
-    return sum([row[x] >= candidateRow[x] for x in range(len(row))]) == len(row)
-
-
 def main(s,e,parallel=True,save=True):
 
     random.seed()
+
+    trainBH = findBH(file,s,e)
 
     NGEN = ngen
     MU = mu
@@ -648,6 +470,7 @@ def main(s,e,parallel=True,save=True):
     print("MUTPB: ",MUTPB)
     print("PC k value is: ",k)
     print("Training PC split is: ",splitTrainingPeriod(datetime.strptime(s,'%Y-%m-%d'), datetime.strptime(e,'%Y-%m-%d'), k),"\n")
+    print("Training B&H is ",trainBH,"%")
     print("Training on data from ",s," to ",e,"\n")
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -686,11 +509,7 @@ def main(s,e,parallel=True,save=True):
 
     # Begin the generational process
     for gen in range(1, NGEN):
-        # Vary the population
-        # offspring = tools.selTournamentDCD(pop, len(pop))
-        # offspring = [toolbox.clone(ind) for ind in offspring]
         offspring = algorithms.varAnd(pop, toolbox, CXPB, MUTPB)
-
 
         # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
@@ -700,30 +519,6 @@ def main(s,e,parallel=True,save=True):
 
         # Select the next generation population from parents and offspring
         pop = toolbox.select(pop + offspring, MU)
-
-        #
-        #
-        # for ind1, ind2 in zip(offspring[::2], offspring[1::2]):
-        #     if random.random() <= CXPB:
-        #         toolbox.mate(ind1, ind2)
-        #
-        #     toolbox.mutate(ind1)
-        #     toolbox.mutate(ind2)
-        #     del ind1.fitness.values, ind2.fitness.values
-
-        # # Evaluate the individuals with an invalid fitness
-        # invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        # fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
-        # for ind, fit in zip(invalid_ind, fitnesses):
-        #     ind.fitness.values = fit
-
-        # Select the next generation population
-        # pop = toolbox.select(pop + offspring, MU)
-        # print("Length: ",len(pop))
-        # for i in pop:
-        #     print(i)
-        # print('\n')
-        # check to ensure this update of paretofront is in the right place
         paretofront.update(pop)
         for ind in pop:
             if ind not in all:
@@ -737,7 +532,7 @@ def main(s,e,parallel=True,save=True):
         elif objectivesOption == 2:
             hypers[gen] = hypervolume(pop, [1.0, 1.0, 50])
         elif objectivesOption == 3:
-            hypers[gen] = hypervolume(pop, [1.0, 1.0, 50, 200])
+            hypers[gen] = hypervolume(pop, [1.0, 1.0, 500, 500])
         elif objectivesOption == 4:
             hypers[gen] = hypervolume(pop, [1.0, 50])
         elif objectivesOption == 5:
@@ -759,8 +554,8 @@ def main(s,e,parallel=True,save=True):
 
     if save:
         cp = dict(population=pop, generation=gen, pareto=paretofront,
-            logbook=logbook, all=all, rndstate=random.getstate(), log=logbook,
-            k=k,mu=MU,cxpb=CXPB,mutpb=MUTPB)
+            logbook=logbook, all=all, rndstate=random.getstate(),
+            k=k,mu=MU,cxpb=CXPB,mutpb=MUTPB,hypers=hypers)
 
         with open("SavedOutput.pkl", "wb") as cp_file:
             pickle.dump(cp, cp_file)
@@ -792,13 +587,10 @@ def main(s,e,parallel=True,save=True):
         allValues = []
         for i in all:
             allValues.append(i.fitness.values)
-        threeScatterPlot(allValues,objectivesOption)
+        scatter(all,paretofront,objectivesOption)
         threeDimensionalPlot(allValues,dominates,objectivesOption)
     elif objectivesOption == 3:
-        allValues = []
-        for i in all:
-            allValues.append(i.fitness.values)
-        threeScatterPlot(allValues,objectivesOption)
+        scatter(all,paretofront,objectivesOption)
     elif objectivesOption == 4:
         plot_pop_pareto_front(all, paretofront,objectivesOption, "Fitness of all individuals")
     elif objectivesOption == 5:
@@ -807,7 +599,7 @@ def main(s,e,parallel=True,save=True):
         allValues = []
         for i in all:
             allValues.append(i.fitness.values)
-        threeScatterPlot(allValues,objectivesOption)
+        scatter(all,paretofront,objectivesOption)
         threeDimensionalPlot(allValues,dominates,objectivesOption)
     elif objectivesOption == 7:
         plot_pop_pareto_front(all, paretofront, objectivesOption, "Fitness of all individuals")
@@ -817,23 +609,14 @@ def main(s,e,parallel=True,save=True):
         allValues = []
         for i in all:
             allValues.append(i.fitness.values)
-        threeScatterPlot(allValues,objectivesOption)
+        scatter(all,paretofront,objectivesOption)
         threeDimensionalPlot(allValues,dominates,objectivesOption)
     elif objectivesOption == 10:
-        allValues = []
-        for i in all:
-            allValues.append(i.fitness.values)
-        threeScatterPlot(allValues,objectivesOption)
+        scatter(all,paretofront,objectivesOption)
     elif objectivesOption == 11:
-        allValues = []
-        for i in all:
-            allValues.append(i.fitness.values)
-        threeScatterPlot(allValues,objectivesOption)
+        scatter(all,paretofront,objectivesOption)
 
     plot_hypervolume(hypers)
-
-
-    #print("Final population hypervolume is %f" % hypervolume(pop, [11.0, 11.0, 11.0]))
 
     return paretofront, logbook
 
@@ -849,19 +632,22 @@ def findBH(name,tStart,tEnd):
 
     return bh
 
-# buyhold = findBH(file,unseenStart,unseenEnd)
-# pcDict = {}
-#testK,name,tStart,tEnd,bhIncrease,pcDict
-def paraUnseen(i):
+def paraUnseen(i,unseenBH,data):
 
-    if i.fitness.values[0] in scores:
-        return
-    scores.append(i.fitness.values[0])
+    if data == "unseen":
+        if i.fitness.values[0] in scores:
+            return
+        scores.append(i.fitness.values[0])
 
     rule = toolbox.compile(expr=i)
 
-    startDate = unseenStart # Start date of the overall trading window.
-    endDate = unseenEnd # End date of the overall trading window.
+    if data == "unseen":
+        startDate = unseenStart # Start date of the overall trading window.
+        endDate = unseenEnd # End date of the overall trading window.
+    elif data == "validation":
+        startDate = validateStart# Start date of the overall trading window.
+        endDate = validateEnd # End date of the overall trading window.
+
     shares = 0 # The number of shares that the trader currently owns.
     position = False # Whether the trader is currently invested in the stock.
     startingBalance = 1000 # The starting amount that the trader will trade with.
@@ -956,9 +742,11 @@ def paraUnseen(i):
 
         if oldP != False:
             if position:
-                dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/numTrDays)
-            else:
-                dailyReturn.append(0-riskFreeRate/numTrDays) # add risk free rate of 0.05 as a global variable
+                # dailyReturn.append((((price-oldP)/oldP)*100)-riskFreeRate/numTrDays)
+                dailyReturn.append((((price-oldP)/oldP)*100))
+            # else:
+            #     # dailyReturn.append(0-riskFreeRate/numTrDays) # add risk free rate of 0.05 as a global variable
+            #     dailyReturn.append(0)
 
         oldP = price
 
@@ -976,45 +764,72 @@ def paraUnseen(i):
 
     answer = ((balance - startingBalance)/startingBalance)*100
 
-    aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
-    stdDailyRateOfReturn = numpy.std(dailyReturn)
-    sharpe = round(numpy.sqrt(numTrDays) * aveDailyReturn / stdDailyRateOfReturn,2)
+    if len(dailyReturn) == 0:
+        sharpe = 0
+    else:
+        aveDailyReturn = sum(dailyReturn)/len(dailyReturn)
+        numTDays = len(dailyReturn)
+        stdDailyRateOfReturn = numpy.std(dailyReturn)
+        if stdDailyRateOfReturn == 0:
+            sharpe = 0
+        else:
+            # sharpe = round(numpy.sqrt(numTrDays) * aveDailyReturn / stdDailyRateOfReturn,2)
+            sharpe = round((aveDailyReturn-(riskFreeRate/numTDays))/stdDailyRateOfReturn,2)
 
     if numTrades == 0:
         numTrades = 100
         riskExposure = 100
 
-    above = round(((round(answer,2)-round(buyhold,2))/round(buyhold,2))*100,2)
+    above = round(((round(answer,2)-round(unseenBH,2))/round(unseenBH,2))*100,2)
     # print("Training score: ",i.fitness.values[0]," Unseen score: ",round(answer,2),'\n')
     # pcDict[str(i)] = [pcCount,round(answer,2),i.fitness.values[0],sharpe,above]
-    return [str(i),pcCount,round(answer,2),i.fitness.values[0],sharpe,above]
+    if data == "unseen":
+        return [str(i),pcCount,round(answer,2),i.fitness.values[0],sharpe,above]
+    elif data == "validation":
+        return [str(i),pcCount,round(answer,2),0,sharpe,above]
 
-def unseen(paretofront, tStart, tEnd,test_K, fileName):
+def unseen(paretofront, tStart, tEnd,test_K, fileName, data):
 
     BandH = True
-    print("\nTesting on unseen data from ",tStart," to ", tEnd)
     bh = findBH(fileName,tStart,tEnd)
-    print("Buy and Hold % increase for unseen is ", bh,"\n")
+    if data == "unseen":
+        print("Unseen B&H is ", bh,"%")
+        print("Testing on unseen data from ",tStart," to ", tEnd,'\n')
+    elif data == "validation":
+        print("Validation B&H is ", bh,"%")
+        print("Testing on validation data from ",tStart," to ", tEnd,'\n')
+
     pcDict = {}
     pcSplit = unseenk
     startDay = datetime.strptime(tStart,'%Y-%m-%d')
     endDay = datetime.strptime(tEnd,'%Y-%m-%d')
     interval = splitTrainingPeriod(startDay, endDay, pcSplit)
 
-    print("Number on pareto front is ",len(paretofront))
-    print("Using ",multiprocessing.cpu_count()," processors. ")
-    with Pool() as p:
-        mapped = p.map(paraUnseen, paretofront)
+    if data == "unseen":
+        print("Number on pareto front is ",len(paretofront))
+        print("Using ",multiprocessing.cpu_count()," processors. ")
+    elif data == "validation":
+        print("First result is best profit on pareto, second is best PC.\n")
+
+    if data == "unseen":
+        with Pool() as p:
+            mapped = p.starmap(paraUnseen, zip(paretofront, repeat(bh), repeat('unseen')))
+    elif data == "validation":
+        a = paraUnseen(paretofront[0], bh, "validation")
+        b = paraUnseen(paretofront[1], bh, "validation")
+        mapped = [a,b]
+
 
     for i in mapped:
         if i is not None:
             pcDict[i[0]] = i[1:]
 
-
-    # for i in paretofront:
-    #     paraUnseen(i,test_K,fileName,tStart,tEnd,bh,pcDict)
+    cp = dict(pareto=pcDict)
+    with open("FinalOutput.pkl", "wb") as cp_file:
+        pickle.dump(cp, cp_file)
 
     return pcDict, interval
+
 
 def processPareto(paretoDict, interval):
 
@@ -1023,23 +838,71 @@ def processPareto(paretoDict, interval):
     # Ordering the dictionary by pc value
     sorted_d = dict( sorted(paretoDict.items(), key=operator.itemgetter(1),reverse=True))
 
+    beating = []
+    maxProfit = -100
+    maxPC = 0
+    count = 0
     for key,v in sorted_d.items():
+        if count == 0:
+            pcKey = key
+            count = 1
         print("Strategy:")
         print(key)
         print("Achieved a pc score of ",v[0],"/",unseenk, " on unseen data.")
         print("Training score: ",v[2])
         print("Unseen score: ",v[1]," -> This is an change of ",v[4],"% from the B&H.")
         print("Sharpe ratio: ",v[3],'\n')
+        if v[1] > maxProfit:
+            maxProfit = v[1]
+            percent = v[4]
+            pcMax = v[0]
+            profKey = key
+            
+        if v[4] > 0:
+            beating.append(v)
+    
+    print('\nMaximum profit is ', maxProfit," -> This is an change of ",percent,"% from the B&H.")
+    print('PC value for this was ',pcMax,'/', unseenk)
+    print('\nNumber that outperformed BH is ',len(beating),'/',len(sorted_d),'\n')
 
-# Graph of final unseen results taking just the top ten maybe
-# def graphUnseenResults(paretoDict):
+    bestOnPareto = [profKey, pcKey]
 
-    #
+    return bestOnPareto
+
 
 if __name__ == "__main__":
+
+    # Load training data
     load(ticker,trainingStart,trainingEnd,resolution)
     freeze_support()
     random.seed()
+    # Evolution on training data
     pareto, stats = main(trainingStart,trainingEnd)
-    # answer, interval = unseen(pareto, unseenStart, unseenEnd, unseenk,file)
-    # processPareto(answer,interval)
+
+    # Load Unseen data
+    load(ticker,unseenStart,unseenEnd,resolution)
+    # Run pareto front solutions on unseen data
+    answer, interval = unseen(pareto, unseenStart, unseenEnd, unseenk,file,"unseen")
+    # Retrieve unseen results and process/print results
+    bestPareto = processPareto(answer,interval)
+
+    # Load Validation data
+    load(ticker,validateStart,validateEnd,resolution)
+    # Run pareto front solutions on validation data
+    vAnswer, vInterval = unseen(bestPareto, validateStart, validateEnd, unseenk,file,"validation")
+    bestPareto = processPareto(vAnswer,vInterval)
+
+    # Remove old results folder
+    try:
+        cwd = os.getcwd()
+        shutil.rmtree(cwd+"/results")
+    except FileNotFoundError:
+        print("No file name results to remove. Continuing...")
+    os.mkdir("results")
+    # Move final output files into a separate folder
+    files = ['FinalOutput.pkl', 'SavedOutput.pkl', 'hv.png','map.png','3d.png','scatter.png']
+    for f in files:
+        try:
+            shutil.move(f, 'results')
+        except:
+            continue
