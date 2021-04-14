@@ -54,25 +54,25 @@ resolution = '1d'
 # 9 : Profit, Risk Exposure and no. trades
 # 10: Profit, Sharpe ratio, Risk Exposure and no.trades
 # 11: PC, Sharpe ratio, Risk Exposure and no. trades
-objectivesOption = 5
+objectivesOption = 3
 
 notification = False # True if send a notification when complete
 
-trainingStart = "2015-01-01"
-trainingEnd = "2016-01-01"
-unseenStart = "2016-01-01"
-unseenEnd = "2017-01-01"
-validateStart = "2017-01-01"
-validateEnd = "2018-01-01"
+trainingStart = "2018-01-01"
+trainingEnd = "2019-01-01"
+unseenStart = "2019-01-01"
+unseenEnd = "2020-01-01"
+validateStart = "2020-01-01"
+validateEnd = "2021-01-01"
 
-k = 12
-unseenk = 6
+k = 24
+unseenk = 24
 riskFreeRate = 0.05
 scores = []
 
 # Evolution parameters
-ngen = 4
-mu = 40
+ngen = 15
+mu = 8
 cxpb = 0.4
 mutpb = 0.5
 # -------------------------------------------------------------------- #
@@ -527,27 +527,27 @@ def main(s,e,parallel=True,save=True):
         logbook.record(gen=gen, evals=len(invalid_ind), **record)
 
         if objectivesOption == 1:
-            hypers[gen] = hypervolume(pop, [1.0, 1.0])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0])
         elif objectivesOption == 2:
-            hypers[gen] = hypervolume(pop, [1.0, 1.0, 50])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 500])
         elif objectivesOption == 3:
-            hypers[gen] = hypervolume(pop, [1.0, 1.0, 500, 500])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 500, 500])
         elif objectivesOption == 4:
-            hypers[gen] = hypervolume(pop, [1.0, 50])
+            hypers[gen] = hypervolume(pop, [0.0, 500])
         elif objectivesOption == 5:
-            hypers[gen] = hypervolume(pop, [1.0, 0.5])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0])
         elif objectivesOption == 6:
-            hypers[gen] = hypervolume(pop, [1.0, 1.0, 0.5])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 0.0])
         elif objectivesOption == 7:
-            hypers[gen] = hypervolume(pop, [1.0, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 500])
         elif objectivesOption == 8:
-            hypers[gen] = hypervolume(pop, [1.0, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 500])
         elif objectivesOption == 9:
-            hypers[gen] = hypervolume(pop, [1.0, 200, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 500, 500])
         elif objectivesOption == 10:
-            hypers[gen] = hypervolume(pop, [1.0, 0.5, 200, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 500, 500])
         elif objectivesOption == 11:
-            hypers[gen] = hypervolume(pop, [1.0, 0.5, 200, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 500, 500])
 
         print(logbook.stream)
 
