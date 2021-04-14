@@ -66,8 +66,8 @@ unseenEnd = "2020-01-01"
 validateStart = "2020-01-01"
 validateEnd = "2021-01-01"
 
-k = 12
-unseenk = 12
+k = 24
+unseenk = 24
 riskFreeRate = 0.05
 scores = []
 
@@ -528,27 +528,27 @@ def main(s,e,parallel=True,save=True):
         logbook.record(gen=gen, evals=len(invalid_ind), **record)
 
         if objectivesOption == 1:
-            hypers[gen] = hypervolume(pop, [1.0, 1.0])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0])
         elif objectivesOption == 2:
-            hypers[gen] = hypervolume(pop, [1.0, 1.0, 50])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 500])
         elif objectivesOption == 3:
-            hypers[gen] = hypervolume(pop, [1.0, 1.0, 500, 500])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 500, 500])
         elif objectivesOption == 4:
-            hypers[gen] = hypervolume(pop, [1.0, 50])
+            hypers[gen] = hypervolume(pop, [0.0, 500])
         elif objectivesOption == 5:
-            hypers[gen] = hypervolume(pop, [1.0, 0.5])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0])
         elif objectivesOption == 6:
-            hypers[gen] = hypervolume(pop, [1.0, 1.0, 0.5])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 0.0])
         elif objectivesOption == 7:
-            hypers[gen] = hypervolume(pop, [1.0, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 500])
         elif objectivesOption == 8:
-            hypers[gen] = hypervolume(pop, [1.0, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 500])
         elif objectivesOption == 9:
-            hypers[gen] = hypervolume(pop, [1.0, 200, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 500, 500])
         elif objectivesOption == 10:
-            hypers[gen] = hypervolume(pop, [1.0, 0.5, 200, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 500, 500])
         elif objectivesOption == 11:
-            hypers[gen] = hypervolume(pop, [1.0, 0.5, 200, 200])
+            hypers[gen] = hypervolume(pop, [0.0, 0.0, 500, 500])
 
         print(logbook.stream)
 
