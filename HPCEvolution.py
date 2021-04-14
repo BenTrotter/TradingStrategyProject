@@ -54,12 +54,8 @@ resolution = '1d'
 # 9 : Profit, Risk Exposure and no. trades
 # 10: Profit, Sharpe ratio, Risk Exposure and no.trades
 # 11: PC, Sharpe ratio, Risk Exposure and no. trades
-<<<<<<< HEAD
-objectivesOption = 3
-=======
 
 objectivesOption = 1
->>>>>>> 808b80a2b4cf3698b21784995559428417c243c0
 
 notification = False # True if send a notification when complete
 
@@ -861,10 +857,10 @@ def processPareto(paretoDict, interval):
             percent = v[4]
             pcMax = v[0]
             profKey = key
-            
+
         if v[4] > 0:
             beating.append(v)
-    
+
     print('\nMaximum profit is ', maxProfit," -> This is an change of ",percent,"% from the B&H.")
     print('PC value for this was ',pcMax,'/', unseenk)
     print('\nNumber that outperformed BH is ',len(beating),'/',len(sorted_d),'\n')
