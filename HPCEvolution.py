@@ -54,7 +54,8 @@ resolution = '1d'
 # 9 : Profit, Risk Exposure and no. trades
 # 10: Profit, Sharpe ratio, Risk Exposure and no.trades
 # 11: PC, Sharpe ratio, Risk Exposure and no. trades
-objectivesOption = 5
+
+objectivesOption = 1
 
 notification = False # True if send a notification when complete
 
