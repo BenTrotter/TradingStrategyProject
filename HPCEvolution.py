@@ -59,9 +59,9 @@ objectivesOption = 1
 
 notification = True # True if send a notification when complete
 
-trainingStart = "2018-01-01"
-trainingEnd = "2019-01-01"
-unseenStart = "2019-01-01"
+trainingStart = "2016-01-01"
+trainingEnd = "2018-01-01"
+unseenStart = "2018-01-01"
 unseenEnd = "2020-01-01"
 validateStart = "2020-01-01"
 validateEnd = "2021-01-01"
@@ -857,10 +857,10 @@ def processPareto(paretoDict, interval):
             percent = v[4]
             pcMax = v[0]
             profKey = key
-            
+
         if v[4] > 0:
             beating.append(v)
-    
+
     print('\nMaximum profit is ', maxProfit," -> This is an change of ",percent,"% from the B&H.")
     print('PC value for this was ',pcMax,'/', unseenk)
     print('\nNumber that outperformed BH is ',len(beating),'/',len(sorted_d),'\n')
